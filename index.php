@@ -306,10 +306,19 @@ switch (ENVIRONMENT)
 	define('VIEWPATH', $view_folder.DIRECTORY_SEPARATOR);
 
 /*
- * --------------------------------------------------------------------
- * LOAD THE BOOTSTRAP FILE
- * --------------------------------------------------------------------
- *
- * And away we go...
- */
+	* --------------------------------------------------------------------
+	* LOAD COMPOSER AUTOLOADER
+	* --------------------------------------------------------------------
+	*/
+if (file_exists(APPPATH.'../vendor/autoload.php')) {
+	   require_once APPPATH.'../vendor/autoload.php';
+}
+
+/*
+	* --------------------------------------------------------------------
+	* LOAD THE BOOTSTRAP FILE
+	* --------------------------------------------------------------------
+	*
+	* And away we go...
+	*/
 require_once BASEPATH.'core/CodeIgniter.php';
