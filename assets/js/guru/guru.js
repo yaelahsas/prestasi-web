@@ -15,7 +15,9 @@ $(document).ready(function() {
             { "data": "3" },
             { "data": "4" },
             { "data": "5" },
-            { "data": "6" }
+            { "data": "6" },
+            { "data": "7" },
+            { "data": "8" }
         ],
         "responsive": true,
         "language": {
@@ -212,6 +214,8 @@ function editGuru(id) {
                 $('#id_guru').val(guru.id_guru);
                 $('#nama_guru').val(guru.nama_guru);
                 $('#nip').val(guru.nip);
+                $('#no_telpon').val(guru.no_telpon);
+                $('#no_lid').val(guru.no_lid);
                 $('#id_kelas').val(guru.id_kelas);
                 $('#id_mapel').val(guru.id_mapel);
                 $('#status').val(guru.status);
@@ -385,6 +389,8 @@ function searchGuru() {
                         guru.id_guru,
                         guru.nama_guru,
                         guru.nip ? guru.nip : '-',
+                        guru.no_telpon ? guru.no_telpon : '-',
+                        guru.no_lid ? guru.no_lid : '-',
                         guru.nama_kelas,
                         guru.nama_mapel,
                         statusBadge,
@@ -425,7 +431,7 @@ function updateStats() {
                 let guruNonaktif = 0;
                 
                 $.each(data, function(index, guru) {
-                    if (guru[5].includes('Aktif')) {
+                    if (guru[7].includes('Aktif')) {
                         guruAktif++;
                     } else {
                         guruNonaktif++;

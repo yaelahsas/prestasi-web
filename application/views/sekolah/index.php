@@ -13,6 +13,30 @@
     
     <script>
         const base_url = '<?= base_url(); ?>';
+        // Auto refresh every 30 seconds
+        let autoRefreshInterval;
+        
+        function startAutoRefresh() {
+            autoRefreshInterval = setInterval(function() {
+                if (typeof window.table !== 'undefined') {
+                    console.log('Auto-refresh triggered');
+                    window.table.ajax.reload(null, false);
+                    loadStatistics();
+                }
+            }, 30000);
+        }
+        
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                console.log('Auto-refresh stopped');
+            }
+        }
+        
+        // Start auto refresh when page loads
+        $(document).ready(function() {
+            startAutoRefresh();
+        });
     </script>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -118,7 +142,7 @@
 
         /* Modal Custom Styling */
         .modal {
-            display: none;
+            display: none !important;
             position: fixed;
             z-index: 1000;
             left: 0;
@@ -131,7 +155,7 @@
         }
 
         .modal.show {
-            display: flex;
+            display: flex !important;
             align-items: center;
             justify-content: center;
         }
@@ -639,6 +663,63 @@
         </div>
     </div>
 
+    <!-- Debug Modal -->
+    <div id="debugModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="text-xl font-bold">Debug Information</h3>
+                <button type="button" class="text-white hover:text-gray-200" onclick="closeDebugModal()">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <pre id="debugContent"></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeDebugModal()">
+                    <i class="fas fa-times"></i>
+                    <span>Tutup</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Rename original functions to avoid conflicts
+        let openModalOriginal, closeModalOriginal;
+        
+        function closeDebugModal() {
+            $('#debugModal').removeClass('show');
+        }
+        
+        function showDebug(content) {
+            $('#debugContent').text(JSON.stringify(content, null, 2));
+            $('#debugModal').addClass('show');
+        }
+        
+        $(document).ready(function() {
+            // Store original functions
+            openModalOriginal = openModal;
+            closeModalOriginal = closeModal;
+            
+            // Override with new functions that include auto-refresh logic
+            window.openModal = function(id = null) {
+                console.log('openModal called with ID:', id);
+                stopAutoRefresh();
+                openModalOriginal(id);
+            };
+            
+            window.closeModal = function() {
+                console.log('closeModal called');
+                closeModalOriginal();
+                setTimeout(startAutoRefresh, 1000);
+            };
+            
+            // Debug: Check if modal exists
+            console.log('Modal element:', $('#sekolahModal').length);
+            console.log('Base URL:', base_url);
+        });
+    </script>
     <script src="<?= base_url('assets/js/sekolah/sekolah.js'); ?>"></script>
 
 </body>

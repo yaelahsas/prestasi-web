@@ -1,12 +1,35 @@
 $(document).ready(function() {
     // Initialize DataTable
-    let table = $('#sekolahTable').DataTable({
+    window.table = $('#sekolahTable').DataTable({
         "processing": true,
         "serverSide": false,
         "ajax": {
             "url": base_url + "sekolah/get_sekolah_data",
             "type": "GET",
-            "dataSrc": "data"
+            "dataSrc": function(json) {
+                console.log("DataTables response:", json);
+                if (json.status === 'success') {
+                    return json.data;
+                } else {
+                    console.error("DataTables error:", json.message);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Gagal memuat data sekolah: ' + (json.message || 'Unknown error')
+                    });
+                    return [];
+                }
+            },
+            "error": function(xhr, error, code) {
+                console.log("DataTables error: ", error, code);
+                console.log("Response:", xhr.responseText);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Gagal memuat data sekolah'
+                });
+                return [];
+            }
         },
         "order": [[0, "desc"]],
         "columns": [
@@ -26,6 +49,9 @@ $(document).ready(function() {
         "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "Semua"]],
         "language": {
             "url": "//cdn.datatables.net/plug-ins/1.13.4/i18n/id.json"
+        },
+        "initComplete": function() {
+            console.log("DataTable initialized successfully");
         }
     });
 
@@ -103,23 +129,26 @@ function openModal(id = null) {
                     
                     // Show current logo if exists
                     if (response.data.logo) {
-                        $('#currentLogo').html('<img src="' + base_url('assets/uploads/logo/' + response.data.logo) + '" alt="Current Logo" class="max-w-full h-auto rounded">');
+                        $('#currentLogo').html('<img src="' + base_url + 'assets/uploads/logo/' + response.data.logo + '" alt="Current Logo" class="max-w-full h-auto rounded">');
                     }
                     
                     $('#sekolahModal').addClass('show');
+                    console.log('Modal opened for edit');
                 } else {
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
-                        text: 'Gagal memuat data sekolah'
+                        text: 'Gagal memuat data sekolah: ' + (response.message || 'Unknown error')
                     });
                 }
             },
-            error: function() {
+            error: function(xhr, status, error) {
+                console.log('AJAX Error:', error);
+                console.log('Response:', xhr.responseText);
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Terjadi kesalahan saat memuat data'
+                    text: 'Terjadi kesalahan saat memuat data: ' + error
                 });
             }
         });
@@ -127,17 +156,20 @@ function openModal(id = null) {
         // Add mode
         $('#modalTitle').text('Tambah Sekolah');
         $('#sekolahModal').addClass('show');
+        console.log('Modal opened for add');
     }
 }
 
 // Close modal
 function closeModal() {
+    console.log('closeModal function called');
     $('#sekolahModal').removeClass('show');
     resetForm();
 }
 
 // Reset form
 function resetForm() {
+    console.log('resetForm function called');
     $('#sekolahForm')[0].reset();
     $('#id_sekolah').val('');
     $('.error-message').hide();
@@ -162,6 +194,7 @@ function saveSekolah() {
         dataType: 'json',
         success: function(response) {
             $('#saveBtn').removeClass('loading');
+            console.log('Save response:', response);
             
             if (response.status === 'success') {
                 Swal.fire({
@@ -172,8 +205,11 @@ function saveSekolah() {
                     showConfirmButton: false
                 }).then(function() {
                     closeModal();
-                    table.ajax.reload();
-                    loadStatistics();
+                    // Force refresh table with null parameter to clear cache
+                    if (typeof window.table !== 'undefined') {
+                        window.table.ajax.reload(null, false);
+                        loadStatistics();
+                    }
                 });
             } else {
                 if (response.errors) {
@@ -207,6 +243,7 @@ function saveSekolah() {
 
 // Edit sekolah
 function editSekolah(id) {
+    console.log('Edit sekolah called with ID:', id);
     openModal(id);
 }
 
@@ -228,6 +265,7 @@ function deleteSekolah(id) {
                 type: 'GET',
                 dataType: 'json',
                 success: function(response) {
+                    console.log('Delete response:', response);
                     if (response.status === 'success') {
                         Swal.fire({
                             icon: 'success',
@@ -236,8 +274,11 @@ function deleteSekolah(id) {
                             timer: 2000,
                             showConfirmButton: false
                         }).then(function() {
-                            table.ajax.reload();
-                            loadStatistics();
+                            // Force refresh table with null parameter to clear cache
+                            if (typeof window.table !== 'undefined') {
+                                window.table.ajax.reload(null, false);
+                                loadStatistics();
+                            }
                         });
                     } else {
                         Swal.fire({
@@ -262,7 +303,7 @@ function deleteSekolah(id) {
 // Search sekolah
 function searchSekolah(keyword) {
     if (keyword.trim() === '') {
-        table.ajax.reload();
+        window.table.ajax.reload();
         return;
     }
     
@@ -274,12 +315,12 @@ function searchSekolah(keyword) {
         success: function(response) {
             if (response.status === 'success') {
                 // Clear and reload table with search results
-                table.clear();
+                window.table.clear();
                 
                 if (response.data.length > 0) {
                     response.data.forEach(function(sekolah) {
-                        const logoHtml = sekolah.logo ? 
-                            '<img src="' + base_url('assets/uploads/logo/' + sekolah.logo) + '" alt="Logo" class="w-12 h-12 object-cover rounded">' : '-';
+                        const logoHtml = sekolah.logo ?
+                            '<img src="' + base_url + 'assets/uploads/logo/' + sekolah.logo + '" alt="Logo" class="w-12 h-12 object-cover rounded">' : '-';
                         
                         const row = [
                             sekolah.id_sekolah,
@@ -297,11 +338,11 @@ function searchSekolah(keyword) {
                             '</button>' +
                             '</div>'
                         ];
-                        table.row.add(row);
+                        window.table.row.add(row);
                     });
                 }
                 
-                table.draw();
+                window.table.draw();
             } else {
                 Swal.fire({
                     icon: 'error',
@@ -322,17 +363,23 @@ function searchSekolah(keyword) {
 
 // Refresh table
 function refreshTable() {
-    table.ajax.reload();
-    loadStatistics();
-    
-    // Show success message
-    Swal.fire({
-        icon: 'success',
-        title: 'Berhasil',
-        text: 'Data berhasil diperbarui',
-        timer: 1000,
-        showConfirmButton: false
-    });
+    console.log('refreshTable called');
+    // Force refresh table with null parameter to clear cache
+    if (typeof window.table !== 'undefined') {
+        window.table.ajax.reload(null, false);
+        loadStatistics();
+        
+        // Show success message
+        Swal.fire({
+            icon: 'success',
+            title: 'Berhasil',
+            text: 'Data berhasil diperbarui',
+            timer: 1000,
+            showConfirmButton: false
+        });
+    } else {
+        console.error('Table is not defined');
+    }
 }
 
 // Load statistics
@@ -346,6 +393,9 @@ function loadStatistics() {
             if (response.status === 'success') {
                 $('#totalSekolah').text(response.data.total);
             }
+        },
+        error: function(xhr, status, error) {
+            console.log("Statistics load error: ", error);
         }
     });
 }

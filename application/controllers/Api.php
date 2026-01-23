@@ -12,6 +12,9 @@ class Api extends CI_Controller {
         $this->load->model('Kelas_model');
         $this->load->model('Mapel_model');
         $this->load->model('User_model');
+        $this->load->model('Laporan_model');
+        $this->load->model('Sekolah_model');
+        $this->load->helper(array('pdf_helper', 'date'));
         
         // Set response header to JSON
         header('Content-Type: application/json');
@@ -104,65 +107,77 @@ class Api extends CI_Controller {
             $input = $this->input->post();
         }
         
-        // Validate required fields
-        $required_fields = ['tanggal', 'id_guru', 'id_kelas', 'id_mapel', 'materi', 'jumlah_siswa'];
-        foreach ($required_fields as $field) {
-            if (empty($input[$field])) {
-                $this->_send_error_response("Field '{$field}' is required");
-                return;
-            }
-        }
-        
-        // Validate data
-        if (!strtotime($input['tanggal'])) {
-            $this->_send_error_response('Invalid date format for tanggal');
+        // Validate required fields - only no_telpon is required now
+        if (empty($input['no_telpon'])) {
+            $this->_send_error_response("Field 'no_telpon' is required");
             return;
         }
         
-        if (!is_numeric($input['jumlah_siswa']) || $input['jumlah_siswa'] <= 0) {
-            $this->_send_error_response('Jumlah siswa must be a positive number');
+        // Validate phone number format
+        if (!preg_match('/^(0[0-9]{9,14}|(\+62)[0-9]{9,14}|628[0-9]{8,12})$/', $input['no_telpon'])) {
+            $this->_send_error_response('Format nomor telepon tidak valid. Gunakan format: 08xxxxxxxxxx, +62xxxxxxxxxx, atau 628xxxxxxxxxx');
             return;
         }
         
-        // Check if guru exists
-        $guru = $this->db->get_where('bimbel_guru', ['id_guru' => $input['id_guru']])->row();
+        // Get guru information by phone number
+        $guru = $this->Guru_model->get_guru_by_phone($input['no_telpon']);
         if (!$guru) {
-            $this->_send_error_response('Guru not found');
+            $this->_send_error_response('Guru with phone number ' . $input['no_telpon'] . ' not found');
             return;
         }
         
         // Check if kelas exists
-        $kelas = $this->db->get_where('bimbel_kelas', ['id_kelas' => $input['id_kelas']])->row();
+        $kelas = $this->db->get_where('bimbel_kelas', ['id_kelas' => $guru->id_kelas])->row();
         if (!$kelas) {
             $this->_send_error_response('Kelas not found');
             return;
         }
         
         // Check if mapel exists
-        $mapel = $this->db->get_where('bimbel_mapel', ['id_mapel' => $input['id_mapel']])->row();
+        $mapel = $this->db->get_where('bimbel_mapel', ['id_mapel' => $guru->id_mapel])->row();
         if (!$mapel) {
             $this->_send_error_response('Mata Pelajaran not found');
             return;
         }
         
+        // Update guru data if no_lid is provided
+        $guru_updated = false;
+        $guru_update_data = [];
+        
+        // Check if no_lid is provided and update guru if needed
+        if (isset($input['no_lid']) && !empty($input['no_lid'])) {
+            // Update guru's LID if it's empty
+            if (empty($guru->no_lid)) {
+                $guru_update_data['no_lid'] = $input['no_lid'];
+                $guru_updated = true;
+            }
+        }
+        
+        // Update guru data if needed
+        if ($guru_updated) {
+            $this->db->where('id_guru', $guru->id_guru);
+            $this->db->update('bimbel_guru', $guru_update_data);
+        }
+        
         // Prepare data for insertion
         $data = [
-            'tanggal' => date('Y-m-d', strtotime($input['tanggal'])),
-            'id_guru' => $input['id_guru'],
-            'id_kelas' => $input['id_kelas'],
-            'id_mapel' => $input['id_mapel'],
-            'materi' => $input['materi'],
-            'jumlah_siswa' => $input['jumlah_siswa'],
+            'tanggal' => date('Y-m-d'), // Use current date automatically
+            'id_guru' => $guru->id_guru,
+            'id_kelas' => $guru->id_kelas,
+            'id_mapel' => $guru->id_mapel,
+            'materi' => $mapel->nama_mapel, // Use subject name as materi
+            'jumlah_siswa' => null, // Set to null as requested
             'keterangan' => isset($input['keterangan']) ? $input['keterangan'] : null,
-            'created_by' => isset($input['created_by']) ? $input['created_by'] : 1, // Default to admin if not specified
+            'created_by' => isset($input['created_by']) ? $input['created_by'] : 2, // Default to admin if not specified
             'created_at' => date('Y-m-d H:i:s')
         ];
         
-        // Handle foto_bukti if provided as base64
-        if (isset($input['foto_bukti']) && !empty($input['foto_bukti'])) {
+        // Handle foto (alias for foto_bukti) if provided as base64
+        $foto_field = isset($input['foto']) ? 'foto' : 'foto_bukti';
+        if (isset($input[$foto_field]) && !empty($input[$foto_field])) {
             // Check if it's a base64 string
-            if (preg_match('/^data:image\/(\w+);base64,/', $input['foto_bukti'])) {
-                $foto_bukti = $this->_upload_base64_image($input['foto_bukti']);
+            if (preg_match('/^data:image\/(\w+);base64,/', $input[$foto_field])) {
+                $foto_bukti = $this->_upload_base64_image($input[$foto_field]);
                 if ($foto_bukti) {
                     $data['foto_bukti'] = $foto_bukti;
                 }
@@ -177,10 +192,18 @@ class Api extends CI_Controller {
             $jurnal_id = $this->db->insert_id();
             $jurnal = $this->Jurnal_model->get_jurnal_by_id($jurnal_id);
             
-            $this->_send_success_response([
+            $response_data = [
                 'id_jurnal' => $jurnal_id,
                 'jurnal_data' => $jurnal
-            ], 'Jurnal created successfully');
+            ];
+            
+            // Add guru update info if applicable
+            if ($guru_updated) {
+                $response_data['guru_updated'] = true;
+                $response_data['updated_fields'] = array_keys($guru_update_data);
+            }
+            
+            $this->_send_success_response($response_data, 'Jurnal created successfully');
         } else {
             $this->_send_error_response('Failed to create jurnal');
         }
@@ -346,5 +369,660 @@ class Api extends CI_Controller {
         
         $jurnal = $this->Jurnal_model->search_jurnal($keyword);
         $this->_send_success_response($jurnal, 'Search results retrieved successfully');
+    }
+
+    /**
+     * Generate PDF report for API
+     * @return void
+     */
+    public function get_laporan_pdf()
+    {
+        // Authenticate API request
+        if (!$this->_authenticate()) {
+            return;
+        }
+        
+        // Get parameters
+        $tipe_laporan = $this->input->get('tipe_laporan'); // bulanan, guru, kelas, mapel, rekap_kehadiran
+        $bulan = $this->input->get('bulan') ? $this->input->get('bulan') : date('m');
+        $tahun = $this->input->get('tahun') ? $this->input->get('tahun') : date('Y');
+        $id = $this->input->get('id'); // ID for guru, kelas, or mapel
+        $no_lid = $this->input->get('no_lid'); // no_lid for guru (alternative to id)
+        
+        // Validate tipe_laporan
+        $valid_tipe = ['bulanan', 'guru', 'kelas', 'mapel', 'rekap_kehadiran'];
+        if (!in_array($tipe_laporan, $valid_tipe)) {
+            $this->_send_error_response('Tipe laporan tidak valid. Pilih: bulanan, guru, kelas, mapel, rekap_kehadiran');
+            return;
+        }
+        
+        // Validate required ID for specific report types
+        if (in_array($tipe_laporan, ['guru', 'kelas', 'mapel']) && empty($id) && ($tipe_laporan !== 'guru' || empty($no_lid))) {
+            if ($tipe_laporan === 'guru') {
+                $this->_send_error_response("Parameter 'id' atau 'no_lid' diperlukan untuk tipe laporan guru");
+            } else {
+                $this->_send_error_response("Parameter 'id' diperlukan untuk tipe laporan ini");
+            }
+            return;
+        }
+        
+        // If no_lid is provided for guru report, get the guru ID
+        if ($tipe_laporan === 'guru' && !empty($no_lid)) {
+            $guru = $this->Guru_model->get_guru_by_lid($no_lid);
+            if (!$guru) {
+                $this->_send_error_response("Guru dengan no_lid '{$no_lid}' tidak ditemukan");
+                return;
+            }
+            $id = $guru->id_guru;
+        }
+        
+        try {
+            // Generate PDF based on type
+            $pdf_content = $this->_generate_pdf_content($tipe_laporan, $bulan, $tahun, $id);
+            
+            if ($pdf_content) {
+                // Set headers for PDF download
+                header('Content-Type: application/pdf');
+                header('Content-Disposition: inline; filename="laporan_' . $tipe_laporan . '_' . $bulan . '_' . $tahun . '.pdf"');
+                header('Cache-Control: private, max-age=0, must-revalidate');
+                header('Pragma: public');
+                
+                echo $pdf_content;
+            } else {
+                $this->_send_error_response('Gagal menghasilkan PDF');
+            }
+        } catch (Exception $e) {
+            $this->_send_error_response('Error generating PDF: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Generate PDF content based on report type
+     * @param string $tipe_laporan
+     * @param string $bulan
+     * @param string $tahun
+     * @param int $id
+     * @return string|null
+     */
+    private function _generate_pdf_content($tipe_laporan, $bulan, $tahun, $id = null)
+    {
+        // Load DomPDF library
+        $this->load->library('dompdf');
+        
+        // Create new PDF document
+        $pdf = new Dompdf();
+        $pdf->setPaper('A4', 'portrait');
+        
+        // Get data based on report type
+        switch ($tipe_laporan) {
+            case 'bulanan':
+                return $this->_generate_pdf_bulanan($pdf, $bulan, $tahun);
+            case 'guru':
+                return $this->_generate_pdf_guru($pdf, $id, $bulan, $tahun);
+            case 'kelas':
+                return $this->_generate_pdf_kelas($pdf, $id, $bulan, $tahun);
+            case 'mapel':
+                return $this->_generate_pdf_mapel($pdf, $id, $bulan, $tahun);
+            case 'rekap_kehadiran':
+                return $this->_generate_pdf_rekap_kehadiran($pdf, $bulan, $tahun);
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Generate PDF for monthly report
+     * @param object $pdf
+     * @param string $bulan
+     * @param string $tahun
+     * @return string
+     */
+    private function _generate_pdf_bulanan($pdf, $bulan, $tahun)
+    {
+        // Get data jurnal per bulan
+        $data_jurnal = $this->Laporan_model->get_jurnal_by_bulan_tahun($bulan, $tahun);
+        
+        // Build HTML content
+        $html = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Laporan Jurnal Bulanan</title>
+    <style>
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 10px;
+            margin: 15px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 4px 5px;
+            font-size: 8px;
+        }
+        th {
+            text-align: center;
+            font-weight: bold;
+            background-color: #f0f0f0;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .text-left {
+            text-align: left;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .bold {
+            font-weight: bold;
+        }
+        .margin-top-20 {
+            margin-top: 20px;
+        }
+        .margin-top-50 {
+            margin-top: 50px;
+        }
+    </style>
+</head>
+<body>';
+        
+        // Generate header with sekolah data
+        $html .= generate_pdf_header($pdf, 'LAPORAN JURNAL BULANAN');
+        
+        // Add periode information
+        $html .= '<p class="text-center bold">Periode: ' . $this->_get_nama_bulan($bulan) . ' ' . $tahun . '</p>';
+        
+        // Prepare table data
+        $headers = ['No', 'Tanggal', 'Kelas', 'Mapel', 'Guru', 'Materi', 'Siswa', 'Penginput'];
+        $table_data = [];
+        $no = 1;
+        
+        foreach ($data_jurnal as $jurnal) {
+            $table_data[] = [
+                $no++,
+                date('d/m/Y', strtotime($jurnal->tanggal)),
+                $jurnal->nama_kelas,
+                $jurnal->nama_mapel,
+                $jurnal->nama_guru,
+                substr($jurnal->materi, 0, 30),
+                $jurnal->jumlah_siswa,
+                $jurnal->nama_penginput
+            ];
+        }
+        
+        // Generate table HTML
+        $html .= generate_table_html($headers, $table_data, [10, 20, 25, 25, 30, 50, 15, 25]);
+        
+        // Add summary
+        $html .= '<p class="bold margin-top-20">Total Jurnal: ' . count($data_jurnal) . '</p>';
+        
+        // Generate footer with signature
+        $html .= generate_pdf_footer($pdf, 'Jakarta', format_tanggal_indo(date('Y-m-d')));
+        
+        $html .= '</body></html>';
+        
+        // Load HTML to DomPDF
+        $pdf->loadHtml($html);
+        $pdf->render();
+        
+        // Return PDF content
+        return $pdf->output();
+    }
+
+    /**
+     * Generate PDF for guru report
+     * @param object $pdf
+     * @param int $id_guru
+     * @param string $bulan
+     * @param string $tahun
+     * @return string
+     */
+    private function _generate_pdf_guru($pdf, $id_guru, $bulan, $tahun)
+    {
+        // Get data jurnal per guru
+        $data_jurnal = $this->Laporan_model->get_jurnal_by_guru($id_guru, $bulan, $tahun);
+        
+        // Get guru info
+        $guru_info = $this->db->get_where('bimbel_guru', array('id_guru' => $id_guru))->row();
+        
+        // Build HTML content
+        $html = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Laporan Jurnal Guru</title>
+    <style>
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 10px;
+            margin: 15px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 4px 5px;
+            font-size: 8px;
+        }
+        th {
+            text-align: center;
+            font-weight: bold;
+            background-color: #f0f0f0;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .text-left {
+            text-align: left;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .bold {
+            font-weight: bold;
+        }
+        .margin-top-20 {
+            margin-top: 20px;
+        }
+        .margin-top-50 {
+            margin-top: 50px;
+        }
+    </style>
+</head>
+<body>';
+        
+        // Generate header with sekolah data
+        $html .= generate_pdf_header($pdf, 'LAPORAN JURNAL GURU');
+        
+        // Add guru information
+        $html .= '<p class="bold">Nama Guru: ' . $guru_info->nama_guru . '</p>';
+        $html .= '<p class="bold">NIP: ' . $guru_info->nip . '</p>';
+        $html .= '<p class="bold">Periode: ' . $this->_get_nama_bulan($bulan) . ' ' . $tahun . '</p>';
+        $html .= '<div class="margin-top-20"></div>';
+        
+        // Prepare table data
+        $headers = ['No', 'Tanggal', 'Kelas', 'Mapel', 'Materi', 'Siswa', 'Penginput'];
+        $table_data = [];
+        $no = 1;
+        
+        foreach ($data_jurnal as $jurnal) {
+            $table_data[] = [
+                $no++,
+                date('d/m/Y', strtotime($jurnal->tanggal)),
+                $jurnal->nama_kelas,
+                $jurnal->nama_mapel,
+                substr($jurnal->materi, 0, 30),
+                $jurnal->jumlah_siswa,
+                $jurnal->nama_penginput
+            ];
+        }
+        
+        // Generate table HTML
+        $html .= generate_table_html($headers, $table_data, [10, 20, 25, 25, 50, 15, 25]);
+        
+        // Add summary
+        $html .= '<p class="bold margin-top-20">Total Jurnal: ' . count($data_jurnal) . '</p>';
+        
+        // Generate footer with signature
+        $html .= generate_pdf_footer($pdf, 'Jakarta', format_tanggal_indo(date('Y-m-d')));
+        
+        $html .= '</body></html>';
+        
+        // Load HTML to DomPDF
+        $pdf->loadHtml($html);
+        $pdf->render();
+        
+        // Return PDF content
+        return $pdf->output();
+    }
+
+    /**
+     * Generate PDF for kelas report
+     * @param object $pdf
+     * @param int $id_kelas
+     * @param string $bulan
+     * @param string $tahun
+     * @return string
+     */
+    private function _generate_pdf_kelas($pdf, $id_kelas, $bulan, $tahun)
+    {
+        // Get data jurnal per kelas
+        $data_jurnal = $this->Laporan_model->get_jurnal_by_kelas($id_kelas, $bulan, $tahun);
+        
+        // Get kelas info
+        $kelas_info = $this->db->get_where('bimbel_kelas', array('id_kelas' => $id_kelas))->row();
+        
+        // Build HTML content
+        $html = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Laporan Jurnal Kelas</title>
+    <style>
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 10px;
+            margin: 15px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 4px 5px;
+            font-size: 8px;
+        }
+        th {
+            text-align: center;
+            font-weight: bold;
+            background-color: #f0f0f0;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .text-left {
+            text-align: left;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .bold {
+            font-weight: bold;
+        }
+        .margin-top-20 {
+            margin-top: 20px;
+        }
+        .margin-top-50 {
+            margin-top: 50px;
+        }
+    </style>
+</head>
+<body>';
+        
+        // Generate header with sekolah data
+        $html .= generate_pdf_header($pdf, 'LAPORAN JURNAL KELAS');
+        
+        // Add kelas information
+        $html .= '<p class="bold">Kelas: ' . $kelas_info->nama_kelas . '</p>';
+        $html .= '<p class="bold">Tingkat: ' . $kelas_info->tingkat . '</p>';
+        $html .= '<p class="bold">Periode: ' . $this->_get_nama_bulan($bulan) . ' ' . $tahun . '</p>';
+        $html .= '<div class="margin-top-20"></div>';
+        
+        // Prepare table data
+        $headers = ['No', 'Tanggal', 'Guru', 'Mapel', 'Materi', 'Siswa', 'Penginput'];
+        $table_data = [];
+        $no = 1;
+        
+        foreach ($data_jurnal as $jurnal) {
+            $table_data[] = [
+                $no++,
+                date('d/m/Y', strtotime($jurnal->tanggal)),
+                $jurnal->nama_guru,
+                $jurnal->nama_mapel,
+                substr($jurnal->materi, 0, 30),
+                $jurnal->jumlah_siswa,
+                $jurnal->nama_penginput
+            ];
+        }
+        
+        // Generate table HTML
+        $html .= generate_table_html($headers, $table_data, [10, 20, 30, 25, 50, 15, 25]);
+        
+        // Add summary
+        $html .= '<p class="bold margin-top-20">Total Jurnal: ' . count($data_jurnal) . '</p>';
+        
+        // Generate footer with signature
+        $html .= generate_pdf_footer($pdf, 'Jakarta', format_tanggal_indo(date('Y-m-d')));
+        
+        $html .= '</body></html>';
+        
+        // Load HTML to DomPDF
+        $pdf->loadHtml($html);
+        $pdf->render();
+        
+        // Return PDF content
+        return $pdf->output();
+    }
+
+    /**
+     * Generate PDF for mapel report
+     * @param object $pdf
+     * @param int $id_mapel
+     * @param string $bulan
+     * @param string $tahun
+     * @return string
+     */
+    private function _generate_pdf_mapel($pdf, $id_mapel, $bulan, $tahun)
+    {
+        // Get data jurnal per mapel
+        $data_jurnal = $this->Laporan_model->get_jurnal_by_mapel($id_mapel, $bulan, $tahun);
+        
+        // Get mapel info
+        $mapel_info = $this->db->get_where('bimbel_mapel', array('id_mapel' => $id_mapel))->row();
+        
+        // Build HTML content
+        $html = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Laporan Jurnal Mata Pelajaran</title>
+    <style>
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 10px;
+            margin: 15px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 4px 5px;
+            font-size: 8px;
+        }
+        th {
+            text-align: center;
+            font-weight: bold;
+            background-color: #f0f0f0;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .text-left {
+            text-align: left;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .bold {
+            font-weight: bold;
+        }
+        .margin-top-20 {
+            margin-top: 20px;
+        }
+        .margin-top-50 {
+            margin-top: 50px;
+        }
+    </style>
+</head>
+<body>';
+        
+        // Generate header with sekolah data
+        $html .= generate_pdf_header($pdf, 'LAPORAN JURNAL MATA PELAJARAN');
+        
+        // Add mapel information
+        $html .= '<p class="bold">Mata Pelajaran: ' . $mapel_info->nama_mapel . '</p>';
+        $html .= '<p class="bold">Periode: ' . $this->_get_nama_bulan($bulan) . ' ' . $tahun . '</p>';
+        $html .= '<div class="margin-top-20"></div>';
+        
+        // Prepare table data
+        $headers = ['No', 'Tanggal', 'Guru', 'Kelas', 'Materi', 'Siswa', 'Penginput'];
+        $table_data = [];
+        $no = 1;
+        
+        foreach ($data_jurnal as $jurnal) {
+            $table_data[] = [
+                $no++,
+                date('d/m/Y', strtotime($jurnal->tanggal)),
+                $jurnal->nama_guru,
+                $jurnal->nama_kelas,
+                substr($jurnal->materi, 0, 30),
+                $jurnal->jumlah_siswa,
+                $jurnal->nama_penginput
+            ];
+        }
+        
+        // Generate table HTML
+        $html .= generate_table_html($headers, $table_data, [10, 20, 30, 25, 50, 15, 25]);
+        
+        // Add summary
+        $html .= '<p class="bold margin-top-20">Total Jurnal: ' . count($data_jurnal) . '</p>';
+        
+        // Generate footer with signature
+        $html .= generate_pdf_footer($pdf, 'Jakarta', format_tanggal_indo(date('Y-m-d')));
+        
+        $html .= '</body></html>';
+        
+        // Load HTML to DomPDF
+        $pdf->loadHtml($html);
+        $pdf->render();
+        
+        // Return PDF content
+        return $pdf->output();
+    }
+
+    /**
+     * Generate PDF for rekap kehadiran
+     * @param object $pdf
+     * @param string $bulan
+     * @param string $tahun
+     * @return string
+     */
+    private function _generate_pdf_rekap_kehadiran($pdf, $bulan, $tahun)
+    {
+        // Get data rekap kehadiran
+        $data_rekap = $this->Laporan_model->get_rekap_kehadiran_guru($bulan, $tahun);
+        
+        // Build HTML content
+        $html = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Rekap Kehadiran Guru</title>
+    <style>
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 10px;
+            margin: 15px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 4px 5px;
+            font-size: 8px;
+        }
+        th {
+            text-align: center;
+            font-weight: bold;
+            background-color: #f0f0f0;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .text-left {
+            text-align: left;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .bold {
+            font-weight: bold;
+        }
+        .margin-top-20 {
+            margin-top: 20px;
+        }
+        .margin-top-50 {
+            margin-top: 50px;
+        }
+    </style>
+</head>
+<body>';
+        
+        // Generate header with sekolah data
+        $html .= generate_pdf_header($pdf, 'REKAP KEHADIRAN GURU');
+        
+        // Add periode information
+        $html .= '<p class="bold">Periode: ' . $this->_get_nama_bulan($bulan) . ' ' . $tahun . '</p>';
+        $html .= '<div class="margin-top-20"></div>';
+        
+        // Prepare table data
+        $headers = ['No', 'Nama Guru', 'NIP', 'Total Jurnal', 'Total Siswa'];
+        $table_data = [];
+        $no = 1;
+        
+        foreach ($data_rekap as $rekap) {
+            $table_data[] = [
+                $no++,
+                $rekap->nama_guru,
+                $rekap->nip,
+                $rekap->total_jurnal,
+                $rekap->total_siswa
+            ];
+        }
+        
+        // Generate table HTML
+        $html .= generate_table_html($headers, $table_data, [10, 50, 30, 25, 25]);
+        
+        // Generate footer with signature
+        $html .= generate_pdf_footer($pdf, 'Jakarta', format_tanggal_indo(date('Y-m-d')));
+        
+        $html .= '</body></html>';
+        
+        // Load HTML to DomPDF
+        $pdf->loadHtml($html);
+        $pdf->render();
+        
+        // Return PDF content
+        return $pdf->output();
+    }
+
+    /**
+     * Helper function untuk nama bulan
+     * @param string $bulan
+     * @return string
+     */
+    private function _get_nama_bulan($bulan) {
+        $nama_bulan = array(
+            '01' => 'Januari',
+            '02' => 'Februari',
+            '03' => 'Maret',
+            '04' => 'April',
+            '05' => 'Mei',
+            '06' => 'Juni',
+            '07' => 'Juli',
+            '08' => 'Agustus',
+            '09' => 'September',
+            '10' => 'Oktober',
+            '11' => 'November',
+            '12' => 'Desember'
+        );
+        
+        return isset($nama_bulan[$bulan]) ? $nama_bulan[$bulan] : '';
     }
 }

@@ -557,6 +557,8 @@
                                 <th>ID</th>
                                 <th>Nama Guru</th>
                                 <th>NIP</th>
+                                <th>No. Telepon</th>
+                                <th>No. LID</th>
                                 <th>Kelas</th>
                                 <th>Mapel</th>
                                 <th>Status</th>
@@ -597,6 +599,18 @@
                         <label for="nip">NIP</label>
                         <input type="text" id="nip" name="nip" class="form-control" placeholder="Opsional, 18 digit angka">
                         <div class="error-message" id="nip_error"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="no_telpon">No. Telepon</label>
+                        <input type="text" id="no_telpon" name="no_telpon" class="form-control" placeholder="Opsional, contoh: 08123456789, +628123456789, atau 628123456789">
+                        <div class="error-message" id="no_telpon_error"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="no_lid">No. LID</label>
+                        <input type="text" id="no_lid" name="no_lid" class="form-control" placeholder="Opsional">
+                        <div class="error-message" id="no_lid_error"></div>
                     </div>
                     
                     <div class="form-group">

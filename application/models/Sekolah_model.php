@@ -9,8 +9,13 @@ class Sekolah_model extends CI_Model {
      */
     public function get_all_sekolah()
     {
-        $this->db->order_by('nama_sekolah', 'ASC');
-        return $this->db->get('bimbel_sekolah')->result();
+        try {
+            $this->db->order_by('nama_sekolah', 'ASC');
+            return $this->db->get('bimbel_sekolah')->result();
+        } catch (Exception $e) {
+            log_message('error', 'Error getting all sekolah: ' . $e->getMessage());
+            return [];
+        }
     }
 
     /**
@@ -20,8 +25,13 @@ class Sekolah_model extends CI_Model {
      */
     public function get_sekolah_by_id($id_sekolah)
     {
-        $this->db->where('id_sekolah', $id_sekolah);
-        return $this->db->get('bimbel_sekolah')->row();
+        try {
+            $this->db->where('id_sekolah', $id_sekolah);
+            return $this->db->get('bimbel_sekolah')->row();
+        } catch (Exception $e) {
+            log_message('error', 'Error getting sekolah by ID: ' . $e->getMessage());
+            return null;
+        }
     }
 
     /**
@@ -31,8 +41,13 @@ class Sekolah_model extends CI_Model {
      */
     public function insert_sekolah($data)
     {
-        $this->db->insert('bimbel_sekolah', $data);
-        return $this->db->affected_rows() > 0;
+        try {
+            $this->db->insert('bimbel_sekolah', $data);
+            return $this->db->affected_rows() > 0;
+        } catch (Exception $e) {
+            log_message('error', 'Error inserting sekolah: ' . $e->getMessage());
+            return false;
+        }
     }
 
     /**
@@ -43,9 +58,14 @@ class Sekolah_model extends CI_Model {
      */
     public function update_sekolah($id_sekolah, $data)
     {
-        $this->db->where('id_sekolah', $id_sekolah);
-        $this->db->update('bimbel_sekolah', $data);
-        return $this->db->affected_rows() > 0;
+        try {
+            $this->db->where('id_sekolah', $id_sekolah);
+            $this->db->update('bimbel_sekolah', $data);
+            return $this->db->affected_rows() > 0;
+        } catch (Exception $e) {
+            log_message('error', 'Error updating sekolah: ' . $e->getMessage());
+            return false;
+        }
     }
 
     /**
@@ -55,9 +75,14 @@ class Sekolah_model extends CI_Model {
      */
     public function delete_sekolah($id_sekolah)
     {
-        $this->db->where('id_sekolah', $id_sekolah);
-        $this->db->delete('bimbel_sekolah');
-        return $this->db->affected_rows() > 0;
+        try {
+            $this->db->where('id_sekolah', $id_sekolah);
+            $this->db->delete('bimbel_sekolah');
+            return $this->db->affected_rows() > 0;
+        } catch (Exception $e) {
+            log_message('error', 'Error deleting sekolah: ' . $e->getMessage());
+            return false;
+        }
     }
 
     /**
@@ -66,7 +91,12 @@ class Sekolah_model extends CI_Model {
      */
     public function count_sekolah()
     {
-        return $this->db->count_all('bimbel_sekolah');
+        try {
+            return $this->db->count_all('bimbel_sekolah');
+        } catch (Exception $e) {
+            log_message('error', 'Error counting sekolah: ' . $e->getMessage());
+            return 0;
+        }
     }
 
     /**
@@ -76,13 +106,18 @@ class Sekolah_model extends CI_Model {
      */
     public function search_sekolah($keyword)
     {
-        $this->db->group_start();
-        $this->db->like('nama_sekolah', $keyword);
-        $this->db->or_like('alamat', $keyword);
-        $this->db->or_like('kepala_sekolah', $keyword);
-        $this->db->group_end();
-        $this->db->order_by('nama_sekolah', 'ASC');
-        return $this->db->get('bimbel_sekolah')->result();
+        try {
+            $this->db->group_start();
+            $this->db->like('nama_sekolah', $keyword);
+            $this->db->or_like('alamat', $keyword);
+            $this->db->or_like('kepala_sekolah', $keyword);
+            $this->db->group_end();
+            $this->db->order_by('nama_sekolah', 'ASC');
+            return $this->db->get('bimbel_sekolah')->result();
+        } catch (Exception $e) {
+            log_message('error', 'Error searching sekolah: ' . $e->getMessage());
+            return [];
+        }
     }
 
     /**

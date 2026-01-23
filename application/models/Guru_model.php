@@ -150,8 +150,40 @@ class Guru_model extends CI_Model {
         $this->db->group_start();
         $this->db->like('g.nama_guru', $keyword);
         $this->db->or_like('g.nip', $keyword);
+        $this->db->or_like('g.no_telpon', $keyword);
+        $this->db->or_like('g.no_lid', $keyword);
         $this->db->group_end();
         $this->db->order_by('g.nama_guru', 'ASC');
         return $this->db->get()->result();
+    }
+
+    /**
+     * Mendapatkan data guru berdasarkan nomor telepon
+     * @param string $no_telpon
+     * @return object
+     */
+    public function get_guru_by_phone($no_telpon)
+    {
+        $this->db->select('g.*, k.nama_kelas, m.nama_mapel');
+        $this->db->from('bimbel_guru g');
+        $this->db->join('bimbel_kelas k', 'g.id_kelas = k.id_kelas');
+        $this->db->join('bimbel_mapel m', 'g.id_mapel = m.id_mapel');
+        $this->db->where('g.no_telpon', $no_telpon);
+        return $this->db->get()->row();
+    }
+
+    /**
+     * Mendapatkan data guru berdasarkan no_lid
+     * @param string $no_lid
+     * @return object
+     */
+    public function get_guru_by_lid($no_lid)
+    {
+        $this->db->select('g.*, k.nama_kelas, m.nama_mapel');
+        $this->db->from('bimbel_guru g');
+        $this->db->join('bimbel_kelas k', 'g.id_kelas = k.id_kelas');
+        $this->db->join('bimbel_mapel m', 'g.id_mapel = m.id_mapel');
+        $this->db->where('g.no_lid', $no_lid);
+        return $this->db->get()->row();
     }
 }

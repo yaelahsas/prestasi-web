@@ -43,10 +43,12 @@ class Guru extends CI_Controller {
             $row[] = $g->id_guru;
             $row[] = $g->nama_guru;
             $row[] = $g->nip ? $g->nip : '-';
+            $row[] = $g->no_telpon ? $g->no_telpon : '-';
+            $row[] = $g->no_lid ? $g->no_lid : '-';
             $row[] = $g->nama_kelas;
             $row[] = $g->nama_mapel;
-            $row[] = '<span class="px-3 py-1 rounded-full text-xs font-medium ' . 
-                    ($g->status == 'aktif' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800') . 
+            $row[] = '<span class="px-3 py-1 rounded-full text-xs font-medium ' .
+                    ($g->status == 'aktif' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800') .
                     '">' . ucfirst($g->status) . '</span>';
             $row[] = '<div class="flex gap-1">
                         <button onclick="editGuru('.$g->id_guru.')" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
@@ -55,8 +57,8 @@ class Guru extends CI_Controller {
                         <button onclick="deleteGuru('.$g->id_guru.')" class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors">
                             <i class="fas fa-trash"></i>
                         </button>
-                        <button onclick="toggleStatus('.$g->id_guru.', \''.$g->status.'\')" class="px-3 py-1 ' . 
-                        ($g->status == 'aktif' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600') . 
+                        <button onclick="toggleStatus('.$g->id_guru.', \''.$g->status.'\')" class="px-3 py-1 ' .
+                        ($g->status == 'aktif' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600') .
                         ' text-white rounded transition-colors">
                             <i class="fas ' . ($g->status == 'aktif' ? 'fa-eye-slash' : 'fa-eye') . '"></i>
                         </button>
@@ -122,6 +124,8 @@ class Guru extends CI_Controller {
     {
         $this->form_validation->set_rules('nama_guru', 'Nama Guru', 'required|trim|max_length[100]');
         $this->form_validation->set_rules('nip', 'NIP', 'trim|max_length[30]|callback_nip_check');
+        $this->form_validation->set_rules('no_telpon', 'No. Telepon', 'trim|max_length[15]|callback_phone_check');
+        $this->form_validation->set_rules('no_lid', 'No. LID', 'trim|max_length[30]');
         $this->form_validation->set_rules('id_kelas', 'Kelas', 'required');
         $this->form_validation->set_rules('id_mapel', 'Mata Pelajaran', 'required');
         $this->form_validation->set_rules('status', 'Status', 'required');
@@ -130,6 +134,8 @@ class Guru extends CI_Controller {
             $errors = [
                 'nama_guru' => form_error('nama_guru'),
                 'nip' => form_error('nip'),
+                'no_telpon' => form_error('no_telpon'),
+                'no_lid' => form_error('no_lid'),
                 'id_kelas' => form_error('id_kelas'),
                 'id_mapel' => form_error('id_mapel'),
                 'status' => form_error('status')
@@ -147,6 +153,8 @@ class Guru extends CI_Controller {
         $data = [
             'nama_guru' => $this->input->post('nama_guru'),
             'nip' => $this->input->post('nip') ? $this->input->post('nip') : null,
+            'no_telpon' => $this->input->post('no_telpon') ? $this->input->post('no_telpon') : null,
+            'no_lid' => $this->input->post('no_lid') ? $this->input->post('no_lid') : null,
             'id_kelas' => $this->input->post('id_kelas'),
             'id_mapel' => $this->input->post('id_mapel'),
             'status' => $this->input->post('status')
@@ -228,6 +236,26 @@ class Guru extends CI_Controller {
         
         if (!preg_match('/^[0-9]{18}$/', $nip)) {
             $this->form_validation->set_message('nip_check', 'Format NIP tidak valid (harus 18 digit angka)');
+            return FALSE;
+        }
+        
+        return TRUE;
+    }
+
+    /**
+     * Custom validation untuk No. Telepon
+     * @param string $no_telpon
+     * @return bool
+     */
+    public function phone_check($no_telpon)
+    {
+        if (empty($no_telpon)) {
+            return TRUE;
+        }
+        
+        // Validasi format nomor telepon Indonesia (dimulai dengan 0, +62, atau 628)
+        if (!preg_match('/^(0[0-9]{9,14}|(\+62)[0-9]{9,14}|628[0-9]{8,12})$/', $no_telpon)) {
+            $this->form_validation->set_message('phone_check', 'Format nomor telepon tidak valid. Gunakan format: 08xxxxxxxxxx, +62xxxxxxxxxx, atau 628xxxxxxxxxx');
             return FALSE;
         }
         
