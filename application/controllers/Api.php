@@ -587,7 +587,7 @@ class Api extends CI_Controller
         $html .= '<p class="bold margin-top-20">Total Jurnal: ' . count($data_jurnal) . '</p>';
 
         // Generate footer with signature
-        $html .= generate_pdf_footer($pdf, 'Jakarta', format_tanggal_indo(date('Y-m-d')));
+        $html .= generate_pdf_footer($pdf, 'Srono', format_tanggal_indo(date('Y-m-d')));
 
         // ===== BAGIAN LAMPIRAN FOTO =====
         $html .= '<div style="page-break-before: always;"></div>';
@@ -599,7 +599,7 @@ class Api extends CI_Controller
 
             if (!empty($jurnal->foto_bukti)) {
 
-                $path = FCPATH . 'uploads/jurnal/' . $jurnal->foto_bukti;
+                $path = FCPATH . 'assets/uploads/foto_kegiatan/' . $jurnal->foto_bukti;
 
                 if (file_exists($path)) {
 
@@ -623,10 +623,6 @@ class Api extends CI_Controller
 
 
         $html .= '</body></html>';
-        $options = $pdf->getOptions();
-        $options->set('isRemoteEnabled', true);
-        $pdf->setOptions($options);
-
         // Load HTML to DomPDF
         $pdf->loadHtml($html);
         $pdf->render();
@@ -733,8 +729,8 @@ class Api extends CI_Controller
         $html .= '<p class="bold margin-top-20">Total Jurnal: ' . count($data_jurnal) . '</p>';
 
         // Generate footer with signature
-        $html .= generate_pdf_footer($pdf, 'Jakarta', format_tanggal_indo(date('Y-m-d')));
-        
+        $html .= generate_pdf_footer($pdf, 'Srono', format_tanggal_indo(date('Y-m-d')));
+
         // ===== BAGIAN LAMPIRAN FOTO =====
         $html .= '<div style="page-break-before: always;"></div>';
 
@@ -745,7 +741,7 @@ class Api extends CI_Controller
 
             if (!empty($jurnal->foto_bukti)) {
 
-                $path = FCPATH . 'uploads/jurnal/' . $jurnal->foto_bukti;
+                $path = FCPATH . 'assets/uploads/foto_kegiatan/' . $jurnal->foto_bukti;
 
                 if (file_exists($path)) {
 
@@ -769,10 +765,6 @@ class Api extends CI_Controller
 
 
         $html .= '</body></html>';
-        $options = $pdf->getOptions();
-        $options->set('isRemoteEnabled', true);
-        $pdf->setOptions($options);
-      
         // Load HTML to DomPDF
         $pdf->loadHtml($html);
         $pdf->render();
