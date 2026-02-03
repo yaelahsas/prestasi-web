@@ -1,7 +1,8 @@
 <?php
-defined('BASEPATH') OR exit('No direct script access allowed');
+defined('BASEPATH') or exit('No direct script access allowed');
 
-class Api extends CI_Controller {
+class Api extends CI_Controller
+{
 
     public function __construct()
     {
@@ -15,7 +16,7 @@ class Api extends CI_Controller {
         $this->load->model('Laporan_model');
         $this->load->model('Sekolah_model');
         $this->load->helper(array('pdf_helper', 'date'));
-        
+
         // Set response header to JSON
         header('Content-Type: application/json');
     }
@@ -27,16 +28,16 @@ class Api extends CI_Controller {
     private function _authenticate()
     {
         $api_key = $this->input->server('HTTP_X_API_KEY');
-        
+
         // You can store API keys in database or config file
         // For now, using a simple hardcoded key
         $valid_api_keys = ['whatsapp_bot_key_2024', 'prestasi_api_key'];
-        
+
         if (!$api_key || !in_array($api_key, $valid_api_keys)) {
             $this->_send_error_response('Unauthorized', 401);
             return FALSE;
         }
-        
+
         return TRUE;
     }
 
@@ -71,11 +72,11 @@ class Api extends CI_Controller {
             'message' => $message,
             'timestamp' => date('Y-m-d H:i:s')
         ];
-        
+
         if (!empty($data)) {
             $response['data'] = $data;
         }
-        
+
         $this->output
             ->set_status_header(200)
             ->set_content_type('application/json')
@@ -92,76 +93,100 @@ class Api extends CI_Controller {
         if (!$this->_authenticate()) {
             return;
         }
-        
+
         // Only accept POST requests
         if ($this->input->method() !== 'post') {
             $this->_send_error_response('Method not allowed', 405);
             return;
         }
-        
+
         // Get JSON input
         $input = json_decode(file_get_contents('php://input'), TRUE);
-        
+
         // If JSON is empty, try to get from POST data
         if (empty($input)) {
             $input = $this->input->post();
         }
-        
+
         // Validate required fields - only no_telpon is required now
-        if (empty($input['no_telpon'])) {
-            $this->_send_error_response("Field 'no_telpon' is required");
-            return;
-        }
-        
+        // if (empty($input['no_telpon'])) {
+        //     $this->_send_error_response("Field 'no_telpon' is required");
+        //     return;
+        // }
+
         // Validate phone number format
-        if (!preg_match('/^(0[0-9]{9,14}|(\+62)[0-9]{9,14}|628[0-9]{8,12})$/', $input['no_telpon'])) {
-            $this->_send_error_response('Format nomor telepon tidak valid. Gunakan format: 08xxxxxxxxxx, +62xxxxxxxxxx, atau 628xxxxxxxxxx');
-            return;
-        }
-        
+        // if (!preg_match('/^(0[0-9]{9,14}|(\+62)[0-9]{9,14}|628[0-9]{8,12})$/', $input['no_telpon'])) {
+        //     $this->_send_error_response('Format nomor telepon tidak valid. Gunakan format: 08xxxxxxxxxx, +62xxxxxxxxxx, atau 628xxxxxxxxxx');
+        //     return;
+        // }
+
         // Get guru information by phone number
-        $guru = $this->Guru_model->get_guru_by_phone($input['no_telpon']);
+        $guru = $this->Guru_model->get_guru_by_lid($input['no_lid']);
         if (!$guru) {
-            $this->_send_error_response('Guru with phone number ' . $input['no_telpon'] . ' not found');
+            $this->_send_error_response('Guru with LID ' . $input['no_lid'] . ' not found');
             return;
         }
-        
+
         // Check if kelas exists
         $kelas = $this->db->get_where('bimbel_kelas', ['id_kelas' => $guru->id_kelas])->row();
         if (!$kelas) {
             $this->_send_error_response('Kelas not found');
             return;
         }
-        
+
         // Check if mapel exists
         $mapel = $this->db->get_where('bimbel_mapel', ['id_mapel' => $guru->id_mapel])->row();
         if (!$mapel) {
             $this->_send_error_response('Mata Pelajaran not found');
             return;
         }
-        
+
         // Update guru data if no_lid is provided
-        $guru_updated = false;
-        $guru_update_data = [];
-        
+        // $guru_updated = false;
+        // $guru_update_data = [];
+
         // Check if no_lid is provided and update guru if needed
-        if (isset($input['no_lid']) && !empty($input['no_lid'])) {
-            // Update guru's LID if it's empty
-            if (empty($guru->no_lid)) {
-                $guru_update_data['no_lid'] = $input['no_lid'];
-                $guru_updated = true;
+        // if (isset($input['no_lid']) && !empty($input['no_lid'])) {
+        //     // Update guru's LID if it's empty
+        //     if (empty($guru->no_lid)) {
+        //         $guru_update_data['no_lid'] = $input['no_lid'];
+        //         $guru_updated = true;
+        //     }
+        // }
+
+        // // Update guru data if needed
+        // if ($guru_updated) {
+        //     $this->db->where('id_guru', $guru->id_guru);
+        //     $this->db->update('bimbel_guru', $guru_update_data);
+        // }
+
+        if (!empty($input['tanggal'])) {
+
+            // Validasi format tanggal dari input
+            $tanggal_input = $input['tanggal'];
+
+
+            // Cek format YYYY-MM-DD
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $tanggal_input)) {
+                $tanggal = $tanggal_input;
+            } else {
+                // Jika format salah, fallback ke hari ini
+                $tanggal = date('Y-m-d');
             }
+        } else {
+            // Default jika tidak dikirim
+            $tanggal = date('Y-m-d');
         }
-        
-        // Update guru data if needed
-        if ($guru_updated) {
-            $this->db->where('id_guru', $guru->id_guru);
-            $this->db->update('bimbel_guru', $guru_update_data);
+        // Cegah tanggal masa depan
+        if (strtotime($tanggal) > strtotime(date('Y-m-d'))) {
+            $this->_send_error_response('Tanggal jurnal tidak boleh lebih dari hari ini');
+            return;
         }
-        
+
+
         // Prepare data for insertion
         $data = [
-            'tanggal' => date('Y-m-d'), // Use current date automatically
+            'tanggal' => $tanggal, // Use current date automatically
             'id_guru' => $guru->id_guru,
             'id_kelas' => $guru->id_kelas,
             'id_mapel' => $guru->id_mapel,
@@ -171,7 +196,7 @@ class Api extends CI_Controller {
             'created_by' => isset($input['created_by']) ? $input['created_by'] : 2, // Default to admin if not specified
             'created_at' => date('Y-m-d H:i:s')
         ];
-        
+
         // Handle foto (alias for foto_bukti) if provided as base64
         $foto_field = isset($input['foto']) ? 'foto' : 'foto_bukti';
         if (isset($input[$foto_field]) && !empty($input[$foto_field])) {
@@ -183,26 +208,26 @@ class Api extends CI_Controller {
                 }
             }
         }
-        
+
         // Insert jurnal
         $result = $this->Jurnal_model->insert_jurnal($data);
-        
+
         if ($result) {
             // Get the inserted jurnal with related data
             $jurnal_id = $this->db->insert_id();
             $jurnal = $this->Jurnal_model->get_jurnal_by_id($jurnal_id);
-            
+
             $response_data = [
                 'id_jurnal' => $jurnal_id,
                 'jurnal_data' => $jurnal
             ];
-            
+
             // Add guru update info if applicable
-            if ($guru_updated) {
-                $response_data['guru_updated'] = true;
-                $response_data['updated_fields'] = array_keys($guru_update_data);
-            }
-            
+            // if ($guru_updated) {
+            //     $response_data['guru_updated'] = true;
+            //     $response_data['updated_fields'] = array_keys($guru_update_data);
+            // }
+
             $this->_send_success_response($response_data, 'Jurnal created successfully');
         } else {
             $this->_send_error_response('Failed to create jurnal');
@@ -222,15 +247,15 @@ class Api extends CI_Controller {
                 $image_type = $matches[1];
                 $base64_string = substr($base64_string, strpos($base64_string, ',') + 1);
                 $base64_string = base64_decode($base64_string);
-                
+
                 if ($base64_string === false) {
                     return null;
                 }
-                
+
                 // Generate unique filename
                 $filename = uniqid() . '.' . $image_type;
                 $filepath = './assets/uploads/foto_kegiatan/' . $filename;
-                
+
                 // Save file
                 if (file_put_contents($filepath, $base64_string)) {
                     return $filename;
@@ -239,7 +264,7 @@ class Api extends CI_Controller {
         } catch (Exception $e) {
             log_message('error', 'Error uploading base64 image: ' . $e->getMessage());
         }
-        
+
         return null;
     }
 
@@ -252,7 +277,7 @@ class Api extends CI_Controller {
         if (!$this->_authenticate()) {
             return;
         }
-        
+
         $guru = $this->Jurnal_model->get_guru();
         $this->_send_success_response($guru, 'Guru list retrieved successfully');
     }
@@ -266,7 +291,7 @@ class Api extends CI_Controller {
         if (!$this->_authenticate()) {
             return;
         }
-        
+
         $kelas = $this->Jurnal_model->get_kelas();
         $this->_send_success_response($kelas, 'Kelas list retrieved successfully');
     }
@@ -280,7 +305,7 @@ class Api extends CI_Controller {
         if (!$this->_authenticate()) {
             return;
         }
-        
+
         $mapel = $this->Jurnal_model->get_mapel();
         $this->_send_success_response($mapel, 'Mapel list retrieved successfully');
     }
@@ -295,14 +320,14 @@ class Api extends CI_Controller {
         if (!$this->_authenticate()) {
             return;
         }
-        
+
         if (!$id) {
             $this->_send_error_response('Jurnal ID is required');
             return;
         }
-        
+
         $jurnal = $this->Jurnal_model->get_jurnal_by_id($id);
-        
+
         if ($jurnal) {
             $this->_send_success_response($jurnal, 'Jurnal retrieved successfully');
         } else {
@@ -319,14 +344,14 @@ class Api extends CI_Controller {
         if (!$this->_authenticate()) {
             return;
         }
-        
+
         $page = $this->input->get('page') ? (int)$this->input->get('page') : 1;
         $limit = $this->input->get('limit') ? (int)$this->input->get('limit') : 10;
         $offset = ($page - 1) * $limit;
-        
+
         // Get total count
         $total = $this->db->count_all_results('bimbel_jurnal');
-        
+
         // Get jurnal with pagination
         $this->db->select('j.*, g.nama_guru, g.nip, k.nama_kelas, m.nama_mapel, u.nama as nama_penginput');
         $this->db->from('bimbel_jurnal j');
@@ -338,7 +363,7 @@ class Api extends CI_Controller {
         $this->db->order_by('j.created_at', 'DESC');
         $this->db->limit($limit, $offset);
         $jurnal = $this->db->get()->result();
-        
+
         $this->_send_success_response([
             'jurnal' => $jurnal,
             'pagination' => [
@@ -359,14 +384,14 @@ class Api extends CI_Controller {
         if (!$this->_authenticate()) {
             return;
         }
-        
+
         $keyword = $this->input->get('keyword');
-        
+
         if (empty($keyword)) {
             $this->_send_error_response('Search keyword is required');
             return;
         }
-        
+
         $jurnal = $this->Jurnal_model->search_jurnal($keyword);
         $this->_send_success_response($jurnal, 'Search results retrieved successfully');
     }
@@ -381,21 +406,21 @@ class Api extends CI_Controller {
         if (!$this->_authenticate()) {
             return;
         }
-        
+
         // Get parameters
         $tipe_laporan = $this->input->get('tipe_laporan'); // bulanan, guru, kelas, mapel, rekap_kehadiran
         $bulan = $this->input->get('bulan') ? $this->input->get('bulan') : date('m');
         $tahun = $this->input->get('tahun') ? $this->input->get('tahun') : date('Y');
         $id = $this->input->get('id'); // ID for guru, kelas, or mapel
         $no_lid = $this->input->get('no_lid'); // no_lid for guru (alternative to id)
-        
+
         // Validate tipe_laporan
         $valid_tipe = ['bulanan', 'guru', 'kelas', 'mapel', 'rekap_kehadiran'];
         if (!in_array($tipe_laporan, $valid_tipe)) {
             $this->_send_error_response('Tipe laporan tidak valid. Pilih: bulanan, guru, kelas, mapel, rekap_kehadiran');
             return;
         }
-        
+
         // Validate required ID for specific report types
         if (in_array($tipe_laporan, ['guru', 'kelas', 'mapel']) && empty($id) && ($tipe_laporan !== 'guru' || empty($no_lid))) {
             if ($tipe_laporan === 'guru') {
@@ -405,7 +430,7 @@ class Api extends CI_Controller {
             }
             return;
         }
-        
+
         // If no_lid is provided for guru report, get the guru ID
         if ($tipe_laporan === 'guru' && !empty($no_lid)) {
             $guru = $this->Guru_model->get_guru_by_lid($no_lid);
@@ -415,18 +440,18 @@ class Api extends CI_Controller {
             }
             $id = $guru->id_guru;
         }
-        
+
         try {
             // Generate PDF based on type
             $pdf_content = $this->_generate_pdf_content($tipe_laporan, $bulan, $tahun, $id);
-            
+
             if ($pdf_content) {
                 // Set headers for PDF download
                 header('Content-Type: application/pdf');
                 header('Content-Disposition: inline; filename="laporan_' . $tipe_laporan . '_' . $bulan . '_' . $tahun . '.pdf"');
                 header('Cache-Control: private, max-age=0, must-revalidate');
                 header('Pragma: public');
-                
+
                 echo $pdf_content;
             } else {
                 $this->_send_error_response('Gagal menghasilkan PDF');
@@ -448,11 +473,11 @@ class Api extends CI_Controller {
     {
         // Load DomPDF library
         $this->load->library('dompdf');
-        
+
         // Create new PDF document
         $pdf = new Dompdf();
         $pdf->setPaper('A4', 'portrait');
-        
+
         // Get data based on report type
         switch ($tipe_laporan) {
             case 'bulanan':
@@ -481,7 +506,7 @@ class Api extends CI_Controller {
     {
         // Get data jurnal per bulan
         $data_jurnal = $this->Laporan_model->get_jurnal_by_bulan_tahun($bulan, $tahun);
-        
+
         // Build HTML content
         $html = '<!DOCTYPE html>
 <html>
@@ -530,18 +555,18 @@ class Api extends CI_Controller {
     </style>
 </head>
 <body>';
-        
+
         // Generate header with sekolah data
         $html .= generate_pdf_header($pdf, 'LAPORAN JURNAL BULANAN');
-        
+
         // Add periode information
         $html .= '<p class="text-center bold">Periode: ' . $this->_get_nama_bulan($bulan) . ' ' . $tahun . '</p>';
-        
+
         // Prepare table data
         $headers = ['No', 'Tanggal', 'Kelas', 'Mapel', 'Guru', 'Materi', 'Siswa', 'Penginput'];
         $table_data = [];
         $no = 1;
-        
+
         foreach ($data_jurnal as $jurnal) {
             $table_data[] = [
                 $no++,
@@ -554,22 +579,22 @@ class Api extends CI_Controller {
                 $jurnal->nama_penginput
             ];
         }
-        
+
         // Generate table HTML
         $html .= generate_table_html($headers, $table_data, [10, 20, 25, 25, 30, 50, 15, 25]);
-        
+
         // Add summary
         $html .= '<p class="bold margin-top-20">Total Jurnal: ' . count($data_jurnal) . '</p>';
-        
+
         // Generate footer with signature
         $html .= generate_pdf_footer($pdf, 'Jakarta', format_tanggal_indo(date('Y-m-d')));
-        
+
         $html .= '</body></html>';
-        
+
         // Load HTML to DomPDF
         $pdf->loadHtml($html);
         $pdf->render();
-        
+
         // Return PDF content
         return $pdf->output();
     }
@@ -586,10 +611,10 @@ class Api extends CI_Controller {
     {
         // Get data jurnal per guru
         $data_jurnal = $this->Laporan_model->get_jurnal_by_guru($id_guru, $bulan, $tahun);
-        
+
         // Get guru info
         $guru_info = $this->db->get_where('bimbel_guru', array('id_guru' => $id_guru))->row();
-        
+
         // Build HTML content
         $html = '<!DOCTYPE html>
 <html>
@@ -638,21 +663,21 @@ class Api extends CI_Controller {
     </style>
 </head>
 <body>';
-        
+
         // Generate header with sekolah data
         $html .= generate_pdf_header($pdf, 'LAPORAN JURNAL GURU');
-        
+
         // Add guru information
         $html .= '<p class="bold">Nama Guru: ' . $guru_info->nama_guru . '</p>';
         $html .= '<p class="bold">NIP: ' . $guru_info->nip . '</p>';
         $html .= '<p class="bold">Periode: ' . $this->_get_nama_bulan($bulan) . ' ' . $tahun . '</p>';
         $html .= '<div class="margin-top-20"></div>';
-        
+
         // Prepare table data
         $headers = ['No', 'Tanggal', 'Kelas', 'Mapel', 'Materi', 'Siswa', 'Penginput'];
         $table_data = [];
         $no = 1;
-        
+
         foreach ($data_jurnal as $jurnal) {
             $table_data[] = [
                 $no++,
@@ -664,22 +689,22 @@ class Api extends CI_Controller {
                 $jurnal->nama_penginput
             ];
         }
-        
+
         // Generate table HTML
         $html .= generate_table_html($headers, $table_data, [10, 20, 25, 25, 50, 15, 25]);
-        
+
         // Add summary
         $html .= '<p class="bold margin-top-20">Total Jurnal: ' . count($data_jurnal) . '</p>';
-        
+
         // Generate footer with signature
         $html .= generate_pdf_footer($pdf, 'Jakarta', format_tanggal_indo(date('Y-m-d')));
-        
+
         $html .= '</body></html>';
-        
+
         // Load HTML to DomPDF
         $pdf->loadHtml($html);
         $pdf->render();
-        
+
         // Return PDF content
         return $pdf->output();
     }
@@ -696,10 +721,10 @@ class Api extends CI_Controller {
     {
         // Get data jurnal per kelas
         $data_jurnal = $this->Laporan_model->get_jurnal_by_kelas($id_kelas, $bulan, $tahun);
-        
+
         // Get kelas info
         $kelas_info = $this->db->get_where('bimbel_kelas', array('id_kelas' => $id_kelas))->row();
-        
+
         // Build HTML content
         $html = '<!DOCTYPE html>
 <html>
@@ -748,21 +773,21 @@ class Api extends CI_Controller {
     </style>
 </head>
 <body>';
-        
+
         // Generate header with sekolah data
         $html .= generate_pdf_header($pdf, 'LAPORAN JURNAL KELAS');
-        
+
         // Add kelas information
         $html .= '<p class="bold">Kelas: ' . $kelas_info->nama_kelas . '</p>';
         $html .= '<p class="bold">Tingkat: ' . $kelas_info->tingkat . '</p>';
         $html .= '<p class="bold">Periode: ' . $this->_get_nama_bulan($bulan) . ' ' . $tahun . '</p>';
         $html .= '<div class="margin-top-20"></div>';
-        
+
         // Prepare table data
         $headers = ['No', 'Tanggal', 'Guru', 'Mapel', 'Materi', 'Siswa', 'Penginput'];
         $table_data = [];
         $no = 1;
-        
+
         foreach ($data_jurnal as $jurnal) {
             $table_data[] = [
                 $no++,
@@ -774,22 +799,22 @@ class Api extends CI_Controller {
                 $jurnal->nama_penginput
             ];
         }
-        
+
         // Generate table HTML
         $html .= generate_table_html($headers, $table_data, [10, 20, 30, 25, 50, 15, 25]);
-        
+
         // Add summary
         $html .= '<p class="bold margin-top-20">Total Jurnal: ' . count($data_jurnal) . '</p>';
-        
+
         // Generate footer with signature
         $html .= generate_pdf_footer($pdf, 'Jakarta', format_tanggal_indo(date('Y-m-d')));
-        
+
         $html .= '</body></html>';
-        
+
         // Load HTML to DomPDF
         $pdf->loadHtml($html);
         $pdf->render();
-        
+
         // Return PDF content
         return $pdf->output();
     }
@@ -806,10 +831,10 @@ class Api extends CI_Controller {
     {
         // Get data jurnal per mapel
         $data_jurnal = $this->Laporan_model->get_jurnal_by_mapel($id_mapel, $bulan, $tahun);
-        
+
         // Get mapel info
         $mapel_info = $this->db->get_where('bimbel_mapel', array('id_mapel' => $id_mapel))->row();
-        
+
         // Build HTML content
         $html = '<!DOCTYPE html>
 <html>
@@ -858,20 +883,20 @@ class Api extends CI_Controller {
     </style>
 </head>
 <body>';
-        
+
         // Generate header with sekolah data
         $html .= generate_pdf_header($pdf, 'LAPORAN JURNAL MATA PELAJARAN');
-        
+
         // Add mapel information
         $html .= '<p class="bold">Mata Pelajaran: ' . $mapel_info->nama_mapel . '</p>';
         $html .= '<p class="bold">Periode: ' . $this->_get_nama_bulan($bulan) . ' ' . $tahun . '</p>';
         $html .= '<div class="margin-top-20"></div>';
-        
+
         // Prepare table data
         $headers = ['No', 'Tanggal', 'Guru', 'Kelas', 'Materi', 'Siswa', 'Penginput'];
         $table_data = [];
         $no = 1;
-        
+
         foreach ($data_jurnal as $jurnal) {
             $table_data[] = [
                 $no++,
@@ -883,22 +908,22 @@ class Api extends CI_Controller {
                 $jurnal->nama_penginput
             ];
         }
-        
+
         // Generate table HTML
         $html .= generate_table_html($headers, $table_data, [10, 20, 30, 25, 50, 15, 25]);
-        
+
         // Add summary
         $html .= '<p class="bold margin-top-20">Total Jurnal: ' . count($data_jurnal) . '</p>';
-        
+
         // Generate footer with signature
         $html .= generate_pdf_footer($pdf, 'Jakarta', format_tanggal_indo(date('Y-m-d')));
-        
+
         $html .= '</body></html>';
-        
+
         // Load HTML to DomPDF
         $pdf->loadHtml($html);
         $pdf->render();
-        
+
         // Return PDF content
         return $pdf->output();
     }
@@ -914,7 +939,7 @@ class Api extends CI_Controller {
     {
         // Get data rekap kehadiran
         $data_rekap = $this->Laporan_model->get_rekap_kehadiran_guru($bulan, $tahun);
-        
+
         // Build HTML content
         $html = '<!DOCTYPE html>
 <html>
@@ -963,19 +988,19 @@ class Api extends CI_Controller {
     </style>
 </head>
 <body>';
-        
+
         // Generate header with sekolah data
         $html .= generate_pdf_header($pdf, 'REKAP KEHADIRAN GURU');
-        
+
         // Add periode information
         $html .= '<p class="bold">Periode: ' . $this->_get_nama_bulan($bulan) . ' ' . $tahun . '</p>';
         $html .= '<div class="margin-top-20"></div>';
-        
+
         // Prepare table data
         $headers = ['No', 'Nama Guru', 'NIP', 'Total Jurnal', 'Total Siswa'];
         $table_data = [];
         $no = 1;
-        
+
         foreach ($data_rekap as $rekap) {
             $table_data[] = [
                 $no++,
@@ -985,19 +1010,19 @@ class Api extends CI_Controller {
                 $rekap->total_siswa
             ];
         }
-        
+
         // Generate table HTML
         $html .= generate_table_html($headers, $table_data, [10, 50, 30, 25, 25]);
-        
+
         // Generate footer with signature
         $html .= generate_pdf_footer($pdf, 'Jakarta', format_tanggal_indo(date('Y-m-d')));
-        
+
         $html .= '</body></html>';
-        
+
         // Load HTML to DomPDF
         $pdf->loadHtml($html);
         $pdf->render();
-        
+
         // Return PDF content
         return $pdf->output();
     }
@@ -1007,7 +1032,8 @@ class Api extends CI_Controller {
      * @param string $bulan
      * @return string
      */
-    private function _get_nama_bulan($bulan) {
+    private function _get_nama_bulan($bulan)
+    {
         $nama_bulan = array(
             '01' => 'Januari',
             '02' => 'Februari',
@@ -1022,7 +1048,7 @@ class Api extends CI_Controller {
             '11' => 'November',
             '12' => 'Desember'
         );
-        
+
         return isset($nama_bulan[$bulan]) ? $nama_bulan[$bulan] : '';
     }
 }
