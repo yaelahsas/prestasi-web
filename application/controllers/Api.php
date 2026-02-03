@@ -589,7 +589,43 @@ class Api extends CI_Controller
         // Generate footer with signature
         $html .= generate_pdf_footer($pdf, 'Jakarta', format_tanggal_indo(date('Y-m-d')));
 
+        // ===== BAGIAN LAMPIRAN FOTO =====
+        $html .= '<div style="page-break-before: always;"></div>';
+
+        $html .= '<h3 class="text-center">LAMPIRAN BUKTI JURNAL</h3>';
+        $html .= '<p class="text-center">Periode: ' . $this->_get_nama_bulan($bulan) . ' ' . $tahun . '</p>';
+
+        foreach ($data_jurnal as $jurnal) {
+
+            if (!empty($jurnal->foto_bukti)) {
+
+                $path = FCPATH . 'uploads/jurnal/' . $jurnal->foto_bukti;
+
+                if (file_exists($path)) {
+
+                    $type = pathinfo($path, PATHINFO_EXTENSION);
+                    $data = file_get_contents($path);
+                    $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
+
+                    $html .= '<div style="margin-top:20px; page-break-inside: avoid;">';
+
+                    $html .= '<p><b>Tanggal:</b> ' . date('d/m/Y', strtotime($jurnal->tanggal)) . '</p>';
+                    $html .= '<p><b>Guru:</b> ' . $jurnal->nama_guru . '</p>';
+                    $html .= '<p><b>Kelas:</b> ' . $jurnal->nama_kelas . '</p>';
+                    $html .= '<p><b>Mapel:</b> ' . $jurnal->nama_mapel . '</p>';
+
+                    $html .= '<img src="' . $base64 . '" style="max-width: 500px; max-height: 700px;" />';
+
+                    $html .= '</div>';
+                }
+            }
+        }
+
+
         $html .= '</body></html>';
+        $options = $pdf->getOptions();
+        $options->set('isRemoteEnabled', true);
+        $pdf->setOptions($options);
 
         // Load HTML to DomPDF
         $pdf->loadHtml($html);
@@ -698,9 +734,45 @@ class Api extends CI_Controller
 
         // Generate footer with signature
         $html .= generate_pdf_footer($pdf, 'Jakarta', format_tanggal_indo(date('Y-m-d')));
+        
+        // ===== BAGIAN LAMPIRAN FOTO =====
+        $html .= '<div style="page-break-before: always;"></div>';
+
+        $html .= '<h3 class="text-center">LAMPIRAN BUKTI JURNAL</h3>';
+        $html .= '<p class="text-center">Periode: ' . $this->_get_nama_bulan($bulan) . ' ' . $tahun . '</p>';
+
+        foreach ($data_jurnal as $jurnal) {
+
+            if (!empty($jurnal->foto_bukti)) {
+
+                $path = FCPATH . 'uploads/jurnal/' . $jurnal->foto_bukti;
+
+                if (file_exists($path)) {
+
+                    $type = pathinfo($path, PATHINFO_EXTENSION);
+                    $data = file_get_contents($path);
+                    $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
+
+                    $html .= '<div style="margin-top:20px; page-break-inside: avoid;">';
+
+                    $html .= '<p><b>Tanggal:</b> ' . date('d/m/Y', strtotime($jurnal->tanggal)) . '</p>';
+                    $html .= '<p><b>Guru:</b> ' . $jurnal->nama_guru . '</p>';
+                    $html .= '<p><b>Kelas:</b> ' . $jurnal->nama_kelas . '</p>';
+                    $html .= '<p><b>Mapel:</b> ' . $jurnal->nama_mapel . '</p>';
+
+                    $html .= '<img src="' . $base64 . '" style="max-width: 500px; max-height: 700px;" />';
+
+                    $html .= '</div>';
+                }
+            }
+        }
+
 
         $html .= '</body></html>';
-
+        $options = $pdf->getOptions();
+        $options->set('isRemoteEnabled', true);
+        $pdf->setOptions($options);
+      
         // Load HTML to DomPDF
         $pdf->loadHtml($html);
         $pdf->render();
