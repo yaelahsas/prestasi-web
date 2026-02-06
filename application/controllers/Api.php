@@ -16,6 +16,8 @@ class Api extends CI_Controller
         $this->load->model('Laporan_model');
         $this->load->model('Sekolah_model');
         $this->load->helper(array('pdf_helper', 'date'));
+        $this->load->helper('tanggal');
+
 
         // Set response header to JSON
         header('Content-Type: application/json');
@@ -184,17 +186,45 @@ class Api extends CI_Controller
         }
 
 
-        // Prepare data for insertion
+        // Default pakai data dari guru
+        $id_kelas = $guru->id_kelas;
+        $materi   = $mapel->nama_mapel; // default materi = nama mapel guru
+
+        // ===== OVERRIDE KELAS JIKA DIKIRIM DARI BOT =====
+        if (!empty($input['kelas'])) {
+
+            // Normalisasi input kelas (contoh: "7f" jadi "7F")
+            $nama_kelas = strtoupper(trim($input['kelas']));
+
+            // Cari kelas berdasarkan nama
+            $kelas = $this->db->get_where('bimbel_kelas', [
+                'nama_kelas' => $nama_kelas
+            ])->row();
+
+            if ($kelas) {
+                $id_kelas = $kelas->id_kelas;
+            } else {
+                $this->_send_error_response("Kelas {$nama_kelas} tidak ditemukan di database");
+                return;
+            }
+        }
+
+        // ===== OVERRIDE MATERI JIKA DIKIRIM DARI BOT =====
+        if (!empty($input['materi'])) {
+            $materi = $input['materi'];
+        }
+
+        // ===== BUILD DATA FINAL =====
         $data = [
-            'tanggal' => $tanggal, // Use current date automatically
-            'id_guru' => $guru->id_guru,
-            'id_kelas' => $guru->id_kelas,
-            'id_mapel' => $guru->id_mapel,
-            'materi' => $mapel->nama_mapel, // Use subject name as materi
-            'jumlah_siswa' => null, // Set to null as requested
-            'keterangan' => isset($input['keterangan']) ? $input['keterangan'] : null,
-            'created_by' => isset($input['created_by']) ? $input['created_by'] : 2, // Default to admin if not specified
-            'created_at' => date('Y-m-d H:i:s')
+            'tanggal'      => $tanggal,
+            'id_guru'      => $guru->id_guru,
+            'id_kelas'     => $id_kelas,
+            'id_mapel'     => $guru->id_mapel, // MAPEL TETAP DARI GURU
+            'materi'       => $materi,
+            'jumlah_siswa' => null,
+            'keterangan'   => isset($input['keterangan']) ? $input['keterangan'] : null,
+            'created_by'   => isset($input['created_by']) ? $input['created_by'] : 2,
+            'created_at'   => date('Y-m-d H:i:s')
         ];
 
         // Handle foto (alias for foto_bukti) if provided as base64
@@ -504,96 +534,201 @@ class Api extends CI_Controller
      */
     private function _generate_pdf_bulanan($pdf, $bulan, $tahun)
     {
-        // Get data jurnal per bulan
+        // Ambil data jurnal per bulan
         $data_jurnal = $this->Laporan_model->get_jurnal_by_bulan_tahun($bulan, $tahun);
 
-        // Build HTML content
+        // Informasi waktu cetak
+        $tanggal_cetak = date('d-m-Y');
+        $jam_cetak = date('H:i:s');
+        $hari_ini = format_hari_indo(date('Y-m-d'));
+
+        // Rentang periode
+        $awal_periode = date('01-m-Y', strtotime("$tahun-$bulan-01"));
+        $akhir_periode = date('t-m-Y', strtotime("$tahun-$bulan-01"));
+
+        $nama_bulan = $this->_get_nama_bulan($bulan);
+
+        // Statistik ringkas
+        $total_jurnal = count($data_jurnal);
+        $total_guru = count(array_unique(array_column($data_jurnal, 'nama_guru')));
+        $total_kelas = count(array_unique(array_column($data_jurnal, 'nama_kelas')));
+        $total_mapel = count(array_unique(array_column($data_jurnal, 'nama_mapel')));
+
         $html = '<!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <title>Laporan Jurnal Bulanan</title>
-    <style>
-        body {
-            font-family: Helvetica, Arial, sans-serif;
-            font-size: 10px;
-            margin: 15px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 10px;
-        }
-        th, td {
-            border: 1px solid #000;
-            padding: 4px 5px;
-            font-size: 8px;
-        }
-        th {
-            text-align: center;
-            font-weight: bold;
-            background-color: #f0f0f0;
-        }
-        .text-center {
-            text-align: center;
-        }
-        .text-left {
-            text-align: left;
-        }
-        .text-right {
-            text-align: right;
-        }
-        .bold {
-            font-weight: bold;
-        }
-        .margin-top-20 {
-            margin-top: 20px;
-        }
-        .margin-top-50 {
-            margin-top: 50px;
-        }
-    </style>
+<meta charset="utf-8">
+<title>Laporan Jurnal Bulanan</title>
+<style>
+body {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 10px;
+    margin: 20px;
+}
+
+.section {
+    border: 1px solid #000;
+    padding: 10px;
+    margin-bottom: 12px;
+}
+
+.section-title {
+    font-weight: bold;
+    margin-bottom: 6px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table-data th {
+    border: 1px solid #000;
+    padding: 6px;
+    font-size: 9px;
+    background-color: #f0f0f0;
+}
+
+.table-data td {
+    border: 1px solid #000;
+    padding: 5px;
+    font-size: 9px;
+}
+
+.text-center { text-align: center; }
+.bold { font-weight: bold; }
+.small { font-size: 8px; }
+
+.meta {
+    margin-top: 10px;
+    font-size: 8px;
+    color: #555;
+}
+
+.lampiran {
+    margin-top: 20px;
+    page-break-inside: avoid;
+    border-bottom: 1px dashed #aaa;
+    padding-bottom: 15px;
+}
+
+img {
+    margin-top: 10px;
+  
+    padding: 5px;
+}
+</style>
 </head>
 <body>';
 
-        // Generate header with sekolah data
+        // HEADER UTAMA
         $html .= generate_pdf_header($pdf, 'LAPORAN JURNAL BULANAN');
 
-        // Add periode information
-        $html .= '<p class="text-center bold">Periode: ' . $this->_get_nama_bulan($bulan) . ' ' . $tahun . '</p>';
+        // ===== INFORMASI PERIODE =====
+        $html .= '
+    <div class="section">
+        <div class="section-title">INFORMASI PERIODE LAPORAN</div>
+        <table>
+            <tr>
+                <td width="25%">Periode Laporan</td>
+                <td width="3%">:</td>
+                <td class="bold">' . $nama_bulan . ' ' . $tahun . '</td>
+            </tr>
+            <tr>
+                <td>Rentang Tanggal</td>
+                <td>:</td>
+                <td>' . $awal_periode . ' s/d ' . $akhir_periode . '</td>
+            </tr>
+            <tr>
+                <td>Hari Cetak</td>
+                <td>:</td>
+                <td>' . $hari_ini . '</td>
+            </tr>
+            <tr>
+                <td>Tanggal Cetak</td>
+                <td>:</td>
+                <td>' . $tanggal_cetak . ' pukul ' . $jam_cetak . '</td>
+            </tr>
+        </table>
+    </div>';
 
-        // Prepare table data
-        $headers = ['No', 'Tanggal', 'Kelas', 'Mapel', 'Guru', 'Materi', 'Siswa', 'Penginput'];
-        $table_data = [];
+        // ===== STATISTIK LAPORAN =====
+        $html .= '
+    <div class="section">
+        <div class="section-title">RINGKASAN DATA JURNAL</div>
+        <table>
+            <tr>
+                <td width="25%">Total Jurnal</td>
+                <td width="3%">:</td>
+                <td>' . $total_jurnal . ' entri</td>
+            </tr>
+            <tr>
+                <td>Total Guru Terlibat</td>
+                <td>:</td>
+                <td>' . $total_guru . ' guru</td>
+            </tr>
+            <tr>
+                <td>Total Kelas Terlibat</td>
+                <td>:</td>
+                <td>' . $total_kelas . ' kelas</td>
+            </tr>
+            <tr>
+                <td>Total Mata Pelajaran</td>
+                <td>:</td>
+                <td>' . $total_mapel . ' mapel</td>
+            </tr>
+        </table>
+    </div>';
+
+        // ===== TABEL DETAIL =====
+        $html .= '
+    <div class="section-title">DETAIL DATA JURNAL</div>
+
+    <table class="table-data">
+        <tr>
+            <th width="5%">No</th>
+            <th width="12%">Tanggal</th>
+            <th width="10%">Kelas</th>
+            <th width="15%">Mapel</th>
+            <th>Guru</th>
+            <th>Materi</th>
+            
+        </tr>';
+
         $no = 1;
 
         foreach ($data_jurnal as $jurnal) {
-            $table_data[] = [
-                $no++,
-                date('d/m/Y', strtotime($jurnal->tanggal)),
-                $jurnal->nama_kelas,
-                $jurnal->nama_mapel,
-                $jurnal->nama_guru,
-                substr($jurnal->materi, 0, 30),
-                $jurnal->jumlah_siswa,
-                $jurnal->nama_penginput
-            ];
+            $html .= '
+        <tr>
+            <td class="text-center">' . $no++ . '</td>
+            <td class="text-center">' . date('d/m/Y', strtotime($jurnal->tanggal)) . '</td>
+            <td class="text-center">' . $jurnal->nama_kelas . '</td>
+            <td>' . $jurnal->nama_mapel . '</td>
+            <td>' . $jurnal->nama_guru . '</td>
+            <td>' . htmlspecialchars($jurnal->materi) . '</td>
+           
+        </tr>';
         }
 
-        // Generate table HTML
-        $html .= generate_table_html($headers, $table_data, [10, 20, 25, 25, 30, 50, 15, 25]);
+        $html .= '</table>';
 
-        // Add summary
-        $html .= '<p class="bold margin-top-20">Total Jurnal: ' . count($data_jurnal) . '</p>';
+        // Meta informasi cetak
+        $html .= '
+    <div class="meta">
+        Laporan ini dibuat otomatis oleh sistem pada hari ' .
+            $hari_ini . ', tanggal ' . $tanggal_cetak . ' pukul ' . $jam_cetak . '
+    </div>';
 
-        // Generate footer with signature
+        // Footer tanda tangan
         $html .= generate_pdf_footer($pdf, 'Srono', format_tanggal_indo(date('Y-m-d')));
 
-        // ===== BAGIAN LAMPIRAN FOTO =====
+        // ===== HALAMAN LAMPIRAN =====
         $html .= '<div style="page-break-before: always;"></div>';
 
-        $html .= '<h3 class="text-center">LAMPIRAN BUKTI JURNAL</h3>';
-        $html .= '<p class="text-center">Periode: ' . $this->_get_nama_bulan($bulan) . ' ' . $tahun . '</p>';
+        $html .= '
+    <h3 class="text-center">LAMPIRAN BUKTI JURNAL</h3>
+    <p class="text-center">Periode: ' . $nama_bulan . ' ' . $tahun . '</p>
+    <hr>';
 
         foreach ($data_jurnal as $jurnal) {
 
@@ -607,29 +742,52 @@ class Api extends CI_Controller
                     $data = file_get_contents($path);
                     $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
 
-                    $html .= '<div style="margin-top:20px; page-break-inside: avoid;">';
+                    $html .= '
+                <div class="lampiran">
 
-                    $html .= '<p><b>Tanggal:</b> ' . date('d/m/Y', strtotime($jurnal->tanggal)) . '</p>';
-                    $html .= '<p><b>Guru:</b> ' . $jurnal->nama_guru . '</p>';
-                    $html .= '<p><b>Kelas:</b> ' . $jurnal->nama_kelas . '</p>';
-                    $html .= '<p><b>Mapel:</b> ' . $jurnal->nama_mapel . '</p>';
+                    <table>
+                        <tr>
+                            <td width="20%"><b>Tanggal</b></td>
+                            <td width="3%">:</td>
+                            <td>' . date('d/m/Y', strtotime($jurnal->tanggal)) . '</td>
+                        </tr>
+                        <tr>
+                            <td><b>Guru</b></td>
+                            <td>:</td>
+                            <td>' . $jurnal->nama_guru . '</td>
+                        </tr>
+                        <tr>
+                            <td><b>Kelas</b></td>
+                            <td>:</td>
+                            <td>' . $jurnal->nama_kelas . '</td>
+                        </tr>
+                        <tr>
+                            <td><b>Mapel</b></td>
+                            <td>:</td>
+                            <td>' . $jurnal->nama_mapel . '</td>
+                        </tr>
+                        <tr>
+                            <td><b>Materi</b></td>
+                            <td>:</td>
+                            <td>' . htmlspecialchars($jurnal->materi) . '</td>
+                        </tr>
+                    </table>
 
-                    $html .= '<img src="' . $base64 . '" style="max-width: 500px; max-height: 700px;" />';
+                    <img src="' . $base64 . '" style="max-width: 500px; max-height: 700px;" />
 
-                    $html .= '</div>';
+                </div>';
                 }
             }
         }
 
-
         $html .= '</body></html>';
-        // Load HTML to DomPDF
+
         $pdf->loadHtml($html);
         $pdf->render();
 
-        // Return PDF content
         return $pdf->output();
     }
+
 
     /**
      * Generate PDF for guru report
@@ -641,101 +799,190 @@ class Api extends CI_Controller
      */
     private function _generate_pdf_guru($pdf, $id_guru, $bulan, $tahun)
     {
-        // Get data jurnal per guru
         $data_jurnal = $this->Laporan_model->get_jurnal_by_guru($id_guru, $bulan, $tahun);
+        $guru_info = $this->db->get_where('bimbel_guru', ['id_guru' => $id_guru])->row();
 
-        // Get guru info
-        $guru_info = $this->db->get_where('bimbel_guru', array('id_guru' => $id_guru))->row();
+        $tanggal_cetak = date('d-m-Y');
+        $jam_cetak = date('H:i:s');
+        $hari_ini = format_hari_indo(date('Y-m-d'));
 
-        // Build HTML content
+        $awal_periode = date('01-m-Y', strtotime("$tahun-$bulan-01"));
+        $akhir_periode = date('t-m-Y', strtotime("$tahun-$bulan-01"));
+
+        $nama_bulan = $this->_get_nama_bulan($bulan);
+
+        $total_jurnal = count($data_jurnal);
+        $total_kelas = count(array_unique(array_column($data_jurnal, 'nama_kelas')));
+
         $html = '<!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <title>Laporan Jurnal Guru</title>
-    <style>
-        body {
-            font-family: Helvetica, Arial, sans-serif;
-            font-size: 10px;
-            margin: 15px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 10px;
-        }
-        th, td {
-            border: 1px solid #000;
-            padding: 4px 5px;
-            font-size: 8px;
-        }
-        th {
-            text-align: center;
-            font-weight: bold;
-            background-color: #f0f0f0;
-        }
-        .text-center {
-            text-align: center;
-        }
-        .text-left {
-            text-align: left;
-        }
-        .text-right {
-            text-align: right;
-        }
-        .bold {
-            font-weight: bold;
-        }
-        .margin-top-20 {
-            margin-top: 20px;
-        }
-        .margin-top-50 {
-            margin-top: 50px;
-        }
-    </style>
+<meta charset="utf-8">
+<title>Laporan Jurnal Guru</title>
+<style>
+body {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 10px;
+    margin: 20px;
+}
+
+.header-box {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.info-section {
+    margin-bottom: 15px;
+    border: 1px solid #000;
+    padding: 10px;
+}
+
+.info-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table-data th {
+    border: 1px solid #000;
+    padding: 6px;
+    font-size: 9px;
+    background-color: #f0f0f0;
+}
+
+.table-data td {
+    border: 1px solid #000;
+    padding: 5px;
+    font-size: 9px;
+}
+
+.text-center { text-align: center; }
+.bold { font-weight: bold; }
+.small { font-size: 8px; }
+
+.meta {
+    margin-top: 10px;
+    font-size: 8px;
+    color: #555;
+}
+
+.lampiran {
+    margin-top: 20px;
+    page-break-inside: avoid;
+    border-bottom: 1px dashed #aaa;
+    padding-bottom: 15px;
+}
+
+img {
+    margin-top: 10px;
+   
+    padding: 5px;
+}
+</style>
 </head>
 <body>';
 
-        // Generate header with sekolah data
+        // Header utama
         $html .= generate_pdf_header($pdf, 'LAPORAN JURNAL GURU');
 
-        // Add guru information
-        $html .= '<p class="bold">Nama Guru: ' . $guru_info->nama_guru . '</p>';
-        $html .= '<p class="bold">NIP: ' . $guru_info->nip . '</p>';
-        $html .= '<p class="bold">Periode: ' . $this->_get_nama_bulan($bulan) . ' ' . $tahun . '</p>';
-        $html .= '<div class="margin-top-20"></div>';
+        // Info Guru (dibikin lebih rapi, bukan tabel bersusun)
+        $html .= '
+    <div class="info-section">
+        <div class="info-title">INFORMASI GURU</div>
+        <table>
+            <tr>
+                <td width="20%">Nama Guru</td>
+                <td width="3%">:</td>
+                <td>' . $guru_info->nama_guru . '</td>
+            </tr>
+            <tr>
+                <td>NIP</td>
+                <td>:</td>
+                <td>' . ($guru_info->nip ? $guru_info->nip : '-') . '</td>
+            </tr>
+            <tr>
+                <td>Periode</td>
+                <td>:</td>
+                <td>' . $nama_bulan . ' ' . $tahun . '</td>
+            </tr>
+            <tr>
+                <td>Rentang Tanggal</td>
+                <td>:</td>
+                <td>' . $awal_periode . ' s/d ' . $akhir_periode . '</td>
+            </tr>
+        </table>
+    </div>';
 
-        // Prepare table data
-        $headers = ['No', 'Tanggal', 'Kelas', 'Mapel', 'Materi', 'Siswa', 'Penginput'];
-        $table_data = [];
+        // Statistik
+        $html .= '
+    <div class="info-section">
+        <div class="info-title">RINGKASAN DATA</div>
+        <table>
+            <tr>
+                <td width="20%">Total Jurnal</td>
+                <td width="3%">:</td>
+                <td>' . $total_jurnal . '</td>
+            </tr>
+            <tr>
+                <td>Total Kelas</td>
+                <td>:</td>
+                <td>' . $total_kelas . '</td>
+            </tr>
+        </table>
+    </div>';
+
+        // Tabel Data
+        $html .= '
+    <div class="info-title">DETAIL JURNAL</div>
+
+    <table class="table-data">
+        <tr>
+            <th width="5%">No</th>
+            <th width="12%">Tanggal</th>
+            <th width="12%">Kelas</th>
+            <th width="15%">Mapel</th>
+            <th>Materi</th>
+           
+        </tr>';
+
         $no = 1;
 
         foreach ($data_jurnal as $jurnal) {
-            $table_data[] = [
-                $no++,
-                date('d/m/Y', strtotime($jurnal->tanggal)),
-                $jurnal->nama_kelas,
-                $jurnal->nama_mapel,
-                substr($jurnal->materi, 0, 30),
-                $jurnal->jumlah_siswa,
-                $jurnal->nama_penginput
-            ];
+            $html .= '
+        <tr>
+            <td class="text-center">' . $no++ . '</td>
+            <td class="text-center">' . date('d/m/Y', strtotime($jurnal->tanggal)) . '</td>
+            <td class="text-center">' . $jurnal->nama_kelas . '</td>
+            <td>' . $jurnal->nama_mapel . '</td>
+            <td>' . htmlspecialchars($jurnal->materi) . '</td>
+     
+        </tr>';
         }
 
-        // Generate table HTML
-        $html .= generate_table_html($headers, $table_data, [10, 20, 25, 25, 50, 15, 25]);
+        $html .= '</table>';
 
-        // Add summary
-        $html .= '<p class="bold margin-top-20">Total Jurnal: ' . count($data_jurnal) . '</p>';
+        // Meta cetak
+        $html .= '
+    <div class="meta">
+        Laporan ini dicetak pada hari ' . $hari_ini . ',
+        tanggal ' . $tanggal_cetak . ' pukul ' . $jam_cetak . '
+    </div>';
 
-        // Generate footer with signature
+        // Footer tanda tangan
         $html .= generate_pdf_footer($pdf, 'Srono', format_tanggal_indo(date('Y-m-d')));
 
-        // ===== BAGIAN LAMPIRAN FOTO =====
+        // ===== LAMPIRAN FOTO =====
         $html .= '<div style="page-break-before: always;"></div>';
 
-        $html .= '<h3 class="text-center">LAMPIRAN BUKTI JURNAL</h3>';
-        $html .= '<p class="text-center">Periode: ' . $this->_get_nama_bulan($bulan) . ' ' . $tahun . '</p>';
+        $html .= '
+    <h3 class="text-center">LAMPIRAN BUKTI JURNAL</h3>
+    <p class="text-center">Guru: ' . $guru_info->nama_guru . '</p>
+    <p class="text-center">Periode: ' . $nama_bulan . ' ' . $tahun . '</p>
+    <hr>';
 
         foreach ($data_jurnal as $jurnal) {
 
@@ -749,29 +996,48 @@ class Api extends CI_Controller
                     $data = file_get_contents($path);
                     $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
 
-                    $html .= '<div style="margin-top:20px; page-break-inside: avoid;">';
+                    $html .= '
+                <div class="lampiran">
 
-                    $html .= '<p><b>Tanggal:</b> ' . date('d/m/Y', strtotime($jurnal->tanggal)) . '</p>';
-                    $html .= '<p><b>Guru:</b> ' . $jurnal->nama_guru . '</p>';
-                    $html .= '<p><b>Kelas:</b> ' . $jurnal->nama_kelas . '</p>';
-                    $html .= '<p><b>Mapel:</b> ' . $jurnal->nama_mapel . '</p>';
+                    <table>
+                        <tr>
+                            <td width="20%"><b>Tanggal</b></td>
+                            <td width="3%">:</td>
+                            <td>' . date('d/m/Y', strtotime($jurnal->tanggal)) . '</td>
+                        </tr>
+                        <tr>
+                            <td><b>Kelas</b></td>
+                            <td>:</td>
+                            <td>' . $jurnal->nama_kelas . '</td>
+                        </tr>
+                        <tr>
+                            <td><b>Mapel</b></td>
+                            <td>:</td>
+                            <td>' . $jurnal->nama_mapel . '</td>
+                        </tr>
+                        <tr>
+                            <td><b>Materi</b></td>
+                            <td>:</td>
+                            <td>' . htmlspecialchars($jurnal->materi) . '</td>
+                        </tr>
+                    </table>
 
-                    $html .= '<img src="' . $base64 . '" style="max-width: 500px; max-height: 700px;" />';
+                    <img src="' . $base64 . '" style="max-width: 500px; max-height: 700px;" />
 
-                    $html .= '</div>';
+                </div>';
                 }
             }
         }
 
-
         $html .= '</body></html>';
-        // Load HTML to DomPDF
+
         $pdf->loadHtml($html);
         $pdf->render();
 
-        // Return PDF content
         return $pdf->output();
     }
+
+
 
     /**
      * Generate PDF for kelas report
