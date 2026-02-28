@@ -102,8 +102,22 @@ $route['jurnal/delete/(:num)'] = 'jurnal/delete_jurnal/$1';
 $route['jurnal/search'] = 'jurnal/search';
 $route['jurnal/filter_by_tanggal'] = 'jurnal/filter_by_tanggal';
 
+// WhatsApp Bot Management routes
+$route['whatsapp'] = 'whatsapp/index';
+$route['whatsapp/get_sessions'] = 'whatsapp/get_sessions';
+$route['whatsapp/get_status/(:any)'] = 'whatsapp/get_status/$1';
+$route['whatsapp/get_qr/(:any)'] = 'whatsapp/get_qr/$1';
+$route['whatsapp/add_session'] = 'whatsapp/add_session';
+$route['whatsapp/delete_session/(:any)'] = 'whatsapp/delete_session/$1';
+$route['whatsapp/logout_session/(:any)'] = 'whatsapp/logout_session/$1';
+$route['whatsapp/send_message'] = 'whatsapp/send_message';
+$route['whatsapp/get_message_logs'] = 'whatsapp/get_message_logs';
+$route['whatsapp/webhook_status'] = 'whatsapp/webhook_status';
+
 // API routes for WhatsApp bot integration
 $route['api/auth'] = 'api/auth';
+$route['api/whatsapp/session_status'] = 'api/whatsapp_session_status';
+$route['api/whatsapp/sessions'] = 'api/whatsapp_sessions';
 $route['api/jurnal/create'] = 'api/create_jurnal';
 $route['api/jurnal/list'] = 'api/get_all_jurnal';
 $route['api/jurnal/view/(:num)'] = 'api/get_jurnal/$1';

@@ -530,3 +530,14 @@ $config['rewrite_short_tags'] = FALSE;
 | Array:		array('10.0.1.200', '192.168.5.0/24')
 */
 $config['proxy_ips'] = '';
+
+/*
+|--------------------------------------------------------------------------
+| WhatsApp Bot (Baileys) Configuration
+|--------------------------------------------------------------------------
+|
+| URL ke server Baileys API (Node.js).
+| Ubah sesuai dengan alamat server Baileys Anda.
+|
+*/
+$config['baileys_url'] = getenv('BAILEYS_API_URL') ?: 'http://localhost:3000';

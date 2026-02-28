@@ -1381,4 +1381,65 @@ img {
 
         return isset($nama_bulan[$bulan]) ? $nama_bulan[$bulan] : '';
     }
+
+    /**
+     * Webhook: Update status sesi WhatsApp dari Baileys
+     * Dipanggil oleh server Baileys saat status berubah
+     * POST /api/whatsapp/session_status
+     */
+    public function whatsapp_session_status()
+    {
+        if (!$this->_authenticate()) {
+            return;
+        }
+
+        if ($this->input->method() !== 'post') {
+            $this->_send_error_response('Method not allowed', 405);
+            return;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), TRUE);
+        if (empty($input)) {
+            $input = $this->input->post();
+        }
+
+        if (empty($input['session_id'])) {
+            $this->_send_error_response('session_id diperlukan');
+            return;
+        }
+
+        $this->load->model('Whatsapp_model');
+
+        $session_id = $input['session_id'];
+        $status     = isset($input['status']) ? $input['status'] : 'disconnected';
+        $phone      = isset($input['phone'])  ? $input['phone']  : null;
+
+        $update_data = [
+            'status'     => $status,
+            'updated_at' => date('Y-m-d H:i:s'),
+        ];
+
+        if ($phone) {
+            $update_data['phone_number'] = $phone;
+        }
+
+        $this->Whatsapp_model->update_session($session_id, $update_data);
+
+        $this->_send_success_response([], 'Status sesi diperbarui');
+    }
+
+    /**
+     * Get semua sesi WhatsApp (untuk Baileys server)
+     * GET /api/whatsapp/sessions
+     */
+    public function whatsapp_sessions()
+    {
+        if (!$this->_authenticate()) {
+            return;
+        }
+
+        $this->load->model('Whatsapp_model');
+        $sessions = $this->Whatsapp_model->get_all_sessions();
+        $this->_send_success_response($sessions, 'Sessions retrieved successfully');
+    }
 }
