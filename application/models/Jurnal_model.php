@@ -199,24 +199,57 @@ class Jurnal_model extends CI_Model {
     }
 
     /**
-     * Upload foto bukti
-     * @param string $field_name
-     * @return string|null
+     * Upload foto bukti dengan kompresi otomatis
+     *
+     * Setelah upload berhasil, gambar dikompres:
+     * - Resize ke maks 1200x1200 px (proporsional)
+     * - Kualitas JPEG 75% (cukup untuk cetak laporan)
+     * - Semua format (PNG/GIF) dikonversi ke JPEG
+     *
+     * @param string $field_name  Nama field input file
+     * @param int    $max_width   Lebar maks px (default 1200)
+     * @param int    $max_height  Tinggi maks px (default 1200)
+     * @param int    $quality     Kualitas JPEG 1-100 (default 75)
+     * @return string|null  Nama file hasil upload, atau null jika gagal
      */
-    public function upload_foto_bukti($field_name)
+    public function upload_foto_bukti($field_name, $max_width = 1200, $max_height = 1200, $quality = 75)
     {
-        $config['upload_path'] = './assets/uploads/foto_kegiatan/';
-        $config['allowed_types'] = 'jpg|jpeg|png|gif';
-        $config['max_size'] = 2048; // 2MB
-        $config['encrypt_name'] = TRUE;
-        
+        $upload_dir = './assets/uploads/foto_kegiatan/';
+
+        $config['upload_path']   = $upload_dir;
+        $config['allowed_types'] = 'jpg|jpeg|png|gif|webp';
+        $config['max_size']      = 5120; // 5MB (sebelum kompresi)
+        $config['encrypt_name']  = TRUE;
+
         $this->load->library('upload', $config);
-        
+
         if (!$this->upload->do_upload($field_name)) {
+            log_message('error', 'upload_foto_bukti: ' . $this->upload->display_errors('', ''));
             return null;
-        } else {
-            $upload_data = $this->upload->data();
-            return $upload_data['file_name'];
         }
+
+        $upload_data = $this->upload->data();
+        $original_path = $upload_dir . $upload_data['file_name'];
+
+        // Kompres gambar setelah upload
+        $this->load->helper('image');
+
+        // Nama file output selalu .jpg setelah kompresi
+        $compressed_name = pathinfo($upload_data['file_name'], PATHINFO_FILENAME) . '.jpg';
+        $compressed_path = $upload_dir . $compressed_name;
+
+        $compressed = compress_image($original_path, $compressed_path, $max_width, $max_height, $quality);
+
+        if ($compressed) {
+            // Hapus file original jika berbeda nama (misal PNG -> JPG)
+            if ($original_path !== $compressed_path && file_exists($original_path)) {
+                @unlink($original_path);
+            }
+            return $compressed_name;
+        }
+
+        // Jika kompresi gagal, kembalikan file original
+        log_message('error', 'upload_foto_bukti: kompresi gagal, menggunakan file original');
+        return $upload_data['file_name'];
     }
 }
