@@ -6,6 +6,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= isset($page_title) ? $page_title . ' - Sistem Prestasi' : 'Sistem Prestasi'; ?></title>
 
+    <!-- Tailwind config MUST be set before the CDN script loads -->
+    <script>
+        window.tailwind = { config: {
+            theme: {
+                extend: {
+                    colors: {
+                        'school-green':        '#22c55e',
+                        'school-yellow':       '#facc15',
+                        'school-dark-green':   '#16a34a',
+                        'school-light-green':  '#86efac',
+                        'school-light-yellow': '#fef3c7',
+                        'school-blue':         '#3b82f6',
+                        'school-purple':       '#8b5cf6',
+                        'school-orange':       '#f97316',
+                    },
+                    animation: {
+                        'fade-in':    'fadeIn 0.5s ease-in-out',
+                        'slide-up':   'slideUp 0.3s ease-out',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'bounce-slow':'bounce 2s infinite',
+                    },
+                    keyframes: {
+                        fadeIn:  { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+                        slideUp: { '0%': { transform: 'translateY(20px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
+                    }
+                }
+            }
+        }};
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -136,35 +165,6 @@
         .loading .btn-text { display: none; }
     </style>
 
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'school-green':        '#22c55e',
-                        'school-yellow':       '#facc15',
-                        'school-dark-green':   '#16a34a',
-                        'school-light-green':  '#86efac',
-                        'school-light-yellow': '#fef3c7',
-                        'school-blue':         '#3b82f6',
-                        'school-purple':       '#8b5cf6',
-                        'school-orange':       '#f97316',
-                    },
-                    animation: {
-                        'fade-in':    'fadeIn 0.5s ease-in-out',
-                        'slide-up':   'slideUp 0.3s ease-out',
-                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                        'bounce-slow':'bounce 2s infinite',
-                    },
-                    keyframes: {
-                        fadeIn:  { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
-                        slideUp: { '0%': { transform: 'translateY(20px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
-                    }
-                }
-            }
-        }
-    </script>
-
     <?php if (isset($extra_style)): ?>
     <style>
         <?= $extra_style; ?>
@@ -173,3 +173,5 @@
 </head>
 
 <body class="<?= isset($body_class) ? $body_class : 'bg-gray-50'; ?> min-h-screen">
+<!-- Tailwind safelist: ensure gradient/color classes are always generated -->
+<div class="hidden bg-gray-50 bg-gradient-to-br from-school-light-green to-white"></div>
