@@ -31,6 +31,9 @@ function switchTab(tabName) {
     if (tabName === 'info') {
         checkServerStatus();
     }
+    if (tabName === 'settings') {
+        loadBotSettings();
+    }
 }
 
 // ===== SESSION MANAGEMENT =====
@@ -615,4 +618,291 @@ document.addEventListener('keydown', function(e) {
         closeQRModal();
         closeAddSessionModal();
     }
+});
+
+// ===== BOT SETTINGS =====
+
+/**
+ * Muat pengaturan bot dari server
+ */
+function loadBotSettings() {
+    $.ajax({
+        url: base_url + 'whatsapp/get_bot_settings',
+        method: 'GET',
+        success: function(res) {
+            if (res.status === 'success' && res.data) {
+                const d = res.data;
+                // Isi form dengan data dari server
+                setFieldValue('env_BAILEYS_API_URL',            d.BAILEYS_API_URL            || 'http://localhost:3000');
+                setFieldValue('env_APP_PORT',                   d.APP_PORT                   || '3000');
+                setFieldValue('env_MAX_RETRIES',                d.MAX_RETRIES                || '0');
+                setFieldValue('env_RECONNECT_INTERVAL',         d.RECONNECT_INTERVAL         || '5000');
+                setFieldValue('env_AUTO_READ_MESSAGES',         d.AUTO_READ_MESSAGES         || 'false');
+                setFieldValue('env_BOT_AUTHORIZED_NUMBERS',     d.BOT_AUTHORIZED_NUMBERS     || '');
+                setFieldValue('env_APP_WEBHOOK_URL',            d.APP_WEBHOOK_URL            || '');
+                setFieldValue('env_APP_WEBHOOK_ALLOWED_EVENTS', d.APP_WEBHOOK_ALLOWED_EVENTS || 'ALL');
+                setFieldValue('env_APP_WEBHOOK_FILE_IN_BASE64', d.APP_WEBHOOK_FILE_IN_BASE64 || 'false');
+                setFieldValue('env_BOT_API_URL',                d.BOT_API_URL                || 'http://localhost:9998/api');
+                setFieldValue('env_BOT_API_KEY',                d.BOT_API_KEY                || '');
+
+                updateEnvPreview();
+            }
+        },
+        error: function() {
+            // Jika gagal load, isi dengan default
+            updateEnvPreview();
+        }
+    });
+}
+
+function setFieldValue(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = value;
+}
+
+/**
+ * Simpan pengaturan bot ke server
+ */
+function saveBotSettings() {
+    const data = {
+        BAILEYS_API_URL:            (document.getElementById('env_BAILEYS_API_URL')?.value || '').trim(),
+        APP_PORT:                   (document.getElementById('env_APP_PORT')?.value || '').trim(),
+        MAX_RETRIES:                (document.getElementById('env_MAX_RETRIES')?.value || '').trim(),
+        RECONNECT_INTERVAL:         (document.getElementById('env_RECONNECT_INTERVAL')?.value || '').trim(),
+        AUTO_READ_MESSAGES:         (document.getElementById('env_AUTO_READ_MESSAGES')?.value || 'false'),
+        BOT_AUTHORIZED_NUMBERS:     (document.getElementById('env_BOT_AUTHORIZED_NUMBERS')?.value || '').trim(),
+        APP_WEBHOOK_URL:            (document.getElementById('env_APP_WEBHOOK_URL')?.value || '').trim(),
+        APP_WEBHOOK_ALLOWED_EVENTS: (document.getElementById('env_APP_WEBHOOK_ALLOWED_EVENTS')?.value || 'ALL').trim(),
+        APP_WEBHOOK_FILE_IN_BASE64: (document.getElementById('env_APP_WEBHOOK_FILE_IN_BASE64')?.value || 'false'),
+        BOT_API_URL:                (document.getElementById('env_BOT_API_URL')?.value || '').trim(),
+        BOT_API_KEY:                (document.getElementById('env_BOT_API_KEY')?.value || '').trim(),
+    };
+
+    if (!data.BAILEYS_API_URL) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'URL Wajib Diisi',
+            text: 'URL Baileys API tidak boleh kosong',
+            confirmButtonColor: '#22c55e',
+        });
+        return;
+    }
+
+    Swal.fire({
+        title: 'Menyimpan Pengaturan...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+    });
+
+    $.ajax({
+        url: base_url + 'whatsapp/save_bot_settings',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function(res) {
+            Swal.close();
+            if (res.status === 'success' || res.status === 'warning') {
+                Swal.fire({
+                    icon: res.status === 'success' ? 'success' : 'warning',
+                    title: res.status === 'success' ? 'Pengaturan Disimpan!' : 'Sebagian Tersimpan',
+                    text: res.message,
+                    confirmButtonColor: '#22c55e',
+                    timer: 2500,
+                    showConfirmButton: false,
+                });
+                updateEnvPreview();
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal Menyimpan',
+                    text: res.message || 'Terjadi kesalahan',
+                    confirmButtonColor: '#22c55e',
+                });
+            }
+        },
+        error: function() {
+            Swal.close();
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Gagal menyimpan pengaturan',
+                confirmButtonColor: '#22c55e',
+            });
+        }
+    });
+}
+
+/**
+ * Test koneksi ke Baileys API
+ */
+function testBaileysConnection() {
+    const btn = document.getElementById('btnTestConn');
+    const banner = document.getElementById('connStatusBanner');
+
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xs"></i> Menguji...';
+        btn.disabled = true;
+    }
+
+    if (banner) {
+        banner.className = 'mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2 bg-yellow-50 text-yellow-700';
+        banner.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menguji koneksi ke Baileys API...';
+        banner.classList.remove('hidden');
+    }
+
+    $.ajax({
+        url: base_url + 'whatsapp/test_connection',
+        method: 'GET',
+        timeout: 10000,
+        success: function(res) {
+            if (btn) {
+                btn.innerHTML = '<i class="fas fa-plug text-xs"></i> Test Koneksi';
+                btn.disabled = false;
+            }
+
+            if (res.status === 'success') {
+                if (banner) {
+                    banner.className = 'mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2 bg-green-50 text-green-700 border border-green-200';
+                    banner.innerHTML = `<i class="fas fa-check-circle"></i> <strong>Berhasil terhubung!</strong> Baileys API aktif di <code class="font-mono bg-green-100 px-1 rounded">${escHtml(res.url)}</code>`;
+                }
+            } else {
+                if (banner) {
+                    banner.className = 'mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2 bg-red-50 text-red-700 border border-red-200';
+                    banner.innerHTML = `<i class="fas fa-times-circle"></i> <strong>Gagal terhubung!</strong> ${escHtml(res.message || 'Pastikan server Baileys berjalan')}`;
+                }
+            }
+        },
+        error: function() {
+            if (btn) {
+                btn.innerHTML = '<i class="fas fa-plug text-xs"></i> Test Koneksi';
+                btn.disabled = false;
+            }
+            if (banner) {
+                banner.className = 'mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2 bg-red-50 text-red-700 border border-red-200';
+                banner.innerHTML = '<i class="fas fa-times-circle"></i> <strong>Tidak dapat terhubung!</strong> Pastikan server Baileys berjalan dan URL sudah benar.';
+            }
+        }
+    });
+}
+
+/**
+ * Update preview file .env
+ */
+function updateEnvPreview() {
+    const fields = {
+        BAILEYS_API_URL:            document.getElementById('env_BAILEYS_API_URL')?.value            || 'http://localhost:3000',
+        APP_PORT:                   document.getElementById('env_APP_PORT')?.value                   || '3000',
+        MAX_RETRIES:                document.getElementById('env_MAX_RETRIES')?.value                || '0',
+        RECONNECT_INTERVAL:         document.getElementById('env_RECONNECT_INTERVAL')?.value         || '5000',
+        AUTO_READ_MESSAGES:         document.getElementById('env_AUTO_READ_MESSAGES')?.value         || 'false',
+        BOT_AUTHORIZED_NUMBERS:     document.getElementById('env_BOT_AUTHORIZED_NUMBERS')?.value     || '',
+        APP_WEBHOOK_URL:            document.getElementById('env_APP_WEBHOOK_URL')?.value            || '',
+        APP_WEBHOOK_ALLOWED_EVENTS: document.getElementById('env_APP_WEBHOOK_ALLOWED_EVENTS')?.value || 'ALL',
+        APP_WEBHOOK_FILE_IN_BASE64: document.getElementById('env_APP_WEBHOOK_FILE_IN_BASE64')?.value || 'false',
+        BOT_API_URL:                document.getElementById('env_BOT_API_URL')?.value                || 'http://localhost:9998/api',
+        BOT_API_KEY:                document.getElementById('env_BOT_API_KEY')?.value                || '',
+    };
+
+    const envContent =
+`# ============================================================
+# Konfigurasi WhatsApp Bot (Baileys)
+# Generated: ${new Date().toLocaleString('id-ID')}
+# ============================================================
+
+# ===== SERVER =====
+APP_PORT=${fields.APP_PORT}
+
+# ===== KONEKSI BAILEYS =====
+BAILEYS_API_URL=${fields.BAILEYS_API_URL}
+MAX_RETRIES=${fields.MAX_RETRIES}
+RECONNECT_INTERVAL=${fields.RECONNECT_INTERVAL}
+
+# ===== PERILAKU BOT =====
+AUTO_READ_MESSAGES=${fields.AUTO_READ_MESSAGES}
+BOT_AUTHORIZED_NUMBERS=${fields.BOT_AUTHORIZED_NUMBERS}
+
+# ===== WEBHOOK =====
+APP_WEBHOOK_URL=${fields.APP_WEBHOOK_URL}
+APP_WEBHOOK_ALLOWED_EVENTS=${fields.APP_WEBHOOK_ALLOWED_EVENTS}
+APP_WEBHOOK_FILE_IN_BASE64=${fields.APP_WEBHOOK_FILE_IN_BASE64}
+
+# ===== API BACKEND =====
+BOT_API_URL=${fields.BOT_API_URL}
+BOT_API_KEY=${fields.BOT_API_KEY}`;
+
+    const preview = document.getElementById('envPreview');
+    if (preview) preview.textContent = envContent;
+}
+
+/**
+ * Salin konten .env ke clipboard
+ */
+function copyEnvContent() {
+    const preview = document.getElementById('envPreview');
+    if (!preview) return;
+
+    const text = preview.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        Swal.fire({
+            icon: 'success',
+            title: 'Disalin!',
+            text: 'Konten .env berhasil disalin ke clipboard',
+            confirmButtonColor: '#22c55e',
+            timer: 1500,
+            showConfirmButton: false,
+        });
+    }).catch(() => {
+        // Fallback untuk browser lama
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        Swal.fire({
+            icon: 'success',
+            title: 'Disalin!',
+            text: 'Konten .env berhasil disalin',
+            confirmButtonColor: '#22c55e',
+            timer: 1500,
+            showConfirmButton: false,
+        });
+    });
+}
+
+/**
+ * Toggle visibilitas API Key
+ */
+function toggleApiKeyVisibility() {
+    const input = document.getElementById('env_BOT_API_KEY');
+    const icon  = document.getElementById('apiKeyEyeIcon');
+    if (!input || !icon) return;
+
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fas fa-eye-slash text-xs';
+    } else {
+        input.type = 'password';
+        icon.className = 'fas fa-eye text-xs';
+    }
+}
+
+// Auto-update preview saat ada perubahan di form settings
+document.addEventListener('DOMContentLoaded', function() {
+    const settingsFields = [
+        'env_BAILEYS_API_URL', 'env_APP_PORT', 'env_MAX_RETRIES', 'env_RECONNECT_INTERVAL',
+        'env_AUTO_READ_MESSAGES', 'env_BOT_AUTHORIZED_NUMBERS', 'env_APP_WEBHOOK_URL',
+        'env_APP_WEBHOOK_ALLOWED_EVENTS', 'env_APP_WEBHOOK_FILE_IN_BASE64',
+        'env_BOT_API_URL', 'env_BOT_API_KEY',
+    ];
+    settingsFields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', updateEnvPreview);
+            el.addEventListener('change', updateEnvPreview);
+        }
+    });
 });

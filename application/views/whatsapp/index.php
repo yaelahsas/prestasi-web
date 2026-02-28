@@ -232,6 +232,10 @@
                         class="tab-btn px-6 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap transition-all duration-200 flex items-center gap-2">
                         <i class="fas fa-history"></i> Log Pesan
                     </button>
+                    <button onclick="switchTab('settings')" id="tab-settings"
+                        class="tab-btn px-6 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap transition-all duration-200 flex items-center gap-2">
+                        <i class="fas fa-cog"></i> Pengaturan Bot
+                    </button>
                     <button onclick="switchTab('info')" id="tab-info"
                         class="tab-btn px-6 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap transition-all duration-200 flex items-center gap-2">
                         <i class="fas fa-info-circle"></i> Informasi
@@ -407,6 +411,226 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+
+                <!-- TAB: SETTINGS -->
+                <div id="content-settings" class="tab-content hidden p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h3 class="text-base font-bold text-gray-800">Pengaturan Bot WhatsApp</h3>
+                            <p class="text-xs text-gray-500 mt-0.5">Konfigurasi ENV untuk server Baileys dan bot WA</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="testBaileysConnection()" id="btnTestConn"
+                                class="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-xl text-sm font-medium transition-all">
+                                <i class="fas fa-plug text-xs"></i> Test Koneksi
+                            </button>
+                            <button onclick="saveBotSettings()"
+                                class="flex items-center gap-2 px-4 py-2 bg-school-green text-white hover:bg-school-dark-green rounded-xl text-sm font-medium transition-all">
+                                <i class="fas fa-save text-xs"></i> Simpan Pengaturan
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Connection Status Banner -->
+                    <div id="connStatusBanner" class="hidden mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2"></div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                        <!-- ===== SECTION: SERVER BAILEYS ===== -->
+                        <div class="bg-gray-50 rounded-2xl p-5 border border-gray-100">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-9 h-9 bg-green-100 rounded-xl flex items-center justify-center">
+                                    <i class="fas fa-server text-school-green text-sm"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-gray-800 text-sm">Server Baileys</h4>
+                                    <p class="text-xs text-gray-500">Konfigurasi koneksi ke Node.js Baileys API</p>
+                                </div>
+                            </div>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">
+                                        URL Baileys API <span class="text-red-500">*</span>
+                                        <span class="font-mono text-gray-400 font-normal ml-1">BAILEYS_API_URL</span>
+                                    </label>
+                                    <input type="text" id="env_BAILEYS_API_URL" placeholder="http://localhost:3000"
+                                        class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-school-green focus:border-transparent font-mono">
+                                    <p class="text-xs text-gray-400 mt-1">URL server Baileys yang sedang berjalan</p>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">
+                                        Port Server
+                                        <span class="font-mono text-gray-400 font-normal ml-1">APP_PORT</span>
+                                    </label>
+                                    <input type="number" id="env_APP_PORT" placeholder="3000" min="1" max="65535"
+                                        class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-school-green focus:border-transparent font-mono">
+                                    <p class="text-xs text-gray-400 mt-1">Port yang digunakan server Baileys</p>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">
+                                        Maks Percobaan Reconnect
+                                        <span class="font-mono text-gray-400 font-normal ml-1">MAX_RETRIES</span>
+                                    </label>
+                                    <input type="number" id="env_MAX_RETRIES" placeholder="0" min="-1"
+                                        class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-school-green focus:border-transparent font-mono">
+                                    <p class="text-xs text-gray-400 mt-1">-1 = unlimited, 0 = tidak reconnect</p>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">
+                                        Interval Reconnect (ms)
+                                        <span class="font-mono text-gray-400 font-normal ml-1">RECONNECT_INTERVAL</span>
+                                    </label>
+                                    <input type="number" id="env_RECONNECT_INTERVAL" placeholder="5000" min="0"
+                                        class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-school-green focus:border-transparent font-mono">
+                                    <p class="text-xs text-gray-400 mt-1">Jeda sebelum mencoba reconnect (milidetik)</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ===== SECTION: PERILAKU BOT ===== -->
+                        <div class="bg-gray-50 rounded-2xl p-5 border border-gray-100">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-9 h-9 bg-purple-100 rounded-xl flex items-center justify-center">
+                                    <i class="fas fa-robot text-purple-500 text-sm"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-gray-800 text-sm">Perilaku Bot</h4>
+                                    <p class="text-xs text-gray-500">Pengaturan perilaku bot saat menerima pesan</p>
+                                </div>
+                            </div>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">
+                                        Auto Read Pesan
+                                        <span class="font-mono text-gray-400 font-normal ml-1">AUTO_READ_MESSAGES</span>
+                                    </label>
+                                    <select id="env_AUTO_READ_MESSAGES"
+                                        class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-school-green focus:border-transparent">
+                                        <option value="false">false — Tidak otomatis dibaca</option>
+                                        <option value="true">true — Otomatis tandai dibaca</option>
+                                    </select>
+                                    <p class="text-xs text-gray-400 mt-1">Otomatis tandai pesan masuk sebagai sudah dibaca</p>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">
+                                        Nomor HP Authorized
+                                        <span class="font-mono text-gray-400 font-normal ml-1">BOT_AUTHORIZED_NUMBERS</span>
+                                    </label>
+                                    <textarea id="env_BOT_AUTHORIZED_NUMBERS" rows="3" placeholder="6281234567890,6289876543210"
+                                        class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-school-green focus:border-transparent resize-none font-mono"></textarea>
+                                    <p class="text-xs text-gray-400 mt-1">Nomor yang bisa menggunakan perintah bot, pisahkan dengan koma</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ===== SECTION: WEBHOOK ===== -->
+                        <div class="bg-gray-50 rounded-2xl p-5 border border-gray-100">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-9 h-9 bg-orange-100 rounded-xl flex items-center justify-center">
+                                    <i class="fas fa-broadcast-tower text-orange-500 text-sm"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-gray-800 text-sm">Webhook</h4>
+                                    <p class="text-xs text-gray-500">Konfigurasi pengiriman event ke URL eksternal</p>
+                                </div>
+                            </div>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">
+                                        URL Webhook
+                                        <span class="font-mono text-gray-400 font-normal ml-1">APP_WEBHOOK_URL</span>
+                                    </label>
+                                    <input type="text" id="env_APP_WEBHOOK_URL" placeholder="https://example.com/webhook"
+                                        class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-school-green focus:border-transparent font-mono">
+                                    <p class="text-xs text-gray-400 mt-1">Kosongkan jika tidak menggunakan webhook</p>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">
+                                        Event yang Diizinkan
+                                        <span class="font-mono text-gray-400 font-normal ml-1">APP_WEBHOOK_ALLOWED_EVENTS</span>
+                                    </label>
+                                    <input type="text" id="env_APP_WEBHOOK_ALLOWED_EVENTS" placeholder="ALL"
+                                        class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-school-green focus:border-transparent font-mono">
+                                    <p class="text-xs text-gray-400 mt-1">ALL atau pisahkan dengan koma: MESSAGES_UPSERT,CONNECTION_UPDATE</p>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">
+                                        File Media sebagai Base64
+                                        <span class="font-mono text-gray-400 font-normal ml-1">APP_WEBHOOK_FILE_IN_BASE64</span>
+                                    </label>
+                                    <select id="env_APP_WEBHOOK_FILE_IN_BASE64"
+                                        class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-school-green focus:border-transparent">
+                                        <option value="false">false — Tidak kirim base64</option>
+                                        <option value="true">true — Kirim file media sebagai base64</option>
+                                    </select>
+                                    <p class="text-xs text-gray-400 mt-1">Kirim file media (gambar, dokumen) sebagai base64 ke webhook</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ===== SECTION: API BACKEND ===== -->
+                        <div class="bg-gray-50 rounded-2xl p-5 border border-gray-100">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center">
+                                    <i class="fas fa-link text-blue-500 text-sm"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-gray-800 text-sm">API Backend</h4>
+                                    <p class="text-xs text-gray-500">Koneksi ke API backend untuk perintah #jurnal & #laporan</p>
+                                </div>
+                            </div>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">
+                                        URL API Backend
+                                        <span class="font-mono text-gray-400 font-normal ml-1">BOT_API_URL</span>
+                                    </label>
+                                    <input type="text" id="env_BOT_API_URL" placeholder="http://localhost:9998/api"
+                                        class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-school-green focus:border-transparent font-mono">
+                                    <p class="text-xs text-gray-400 mt-1">URL API yang digunakan bot untuk #jurnal dan #laporan</p>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">
+                                        API Key Backend
+                                        <span class="font-mono text-gray-400 font-normal ml-1">BOT_API_KEY</span>
+                                    </label>
+                                    <div class="relative">
+                                        <input type="password" id="env_BOT_API_KEY" placeholder="••••••••••••••••"
+                                            class="w-full border border-gray-200 rounded-xl px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-school-green focus:border-transparent font-mono">
+                                        <button type="button" onclick="toggleApiKeyVisibility()"
+                                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                                            <i class="fas fa-eye text-xs" id="apiKeyEyeIcon"></i>
+                                        </button>
+                                    </div>
+                                    <p class="text-xs text-gray-400 mt-1">API Key untuk autentikasi ke backend API</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ===== SECTION: GENERATE .ENV ===== -->
+                        <div class="lg:col-span-2 bg-gray-900 rounded-2xl p-5 border border-gray-700">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 bg-gray-700 rounded-xl flex items-center justify-center">
+                                        <i class="fas fa-file-code text-green-400 text-sm"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-white text-sm">Preview File .env</h4>
+                                        <p class="text-xs text-gray-400">Salin konten ini ke file <code class="text-green-400">.env</code> di folder Baileys</p>
+                                    </div>
+                                </div>
+                                <button onclick="copyEnvContent()"
+                                    class="flex items-center gap-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg text-xs font-medium transition-all">
+                                    <i class="fas fa-copy text-xs"></i> Salin
+                                </button>
+                            </div>
+                            <pre id="envPreview" class="text-green-400 text-xs font-mono leading-relaxed overflow-x-auto whitespace-pre-wrap bg-gray-800 rounded-xl p-4 max-h-64 overflow-y-auto">
+# Klik "Muat Pengaturan" atau isi form di atas untuk melihat preview .env
+                            </pre>
+                        </div>
+
                     </div>
                 </div>
 

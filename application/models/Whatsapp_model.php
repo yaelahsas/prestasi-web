@@ -112,4 +112,54 @@ class Whatsapp_model extends CI_Model {
     {
         return $this->db->where('status', 'connected')->count_all_results('whatsapp_sessions');
     }
+
+    // ===== BOT SETTINGS =====
+
+    /**
+     * Ambil semua pengaturan bot
+     */
+    public function get_all_settings()
+    {
+        return $this->db->get('whatsapp_bot_settings')->result();
+    }
+
+    /**
+     * Ambil satu pengaturan berdasarkan key
+     */
+    public function get_setting($key)
+    {
+        $row = $this->db->get_where('whatsapp_bot_settings', ['setting_key' => $key])->row();
+        return $row ? $row->setting_value : null;
+    }
+
+    /**
+     * Simpan atau update pengaturan (upsert)
+     */
+    public function upsert_setting($key, $value)
+    {
+        $existing = $this->db->get_where('whatsapp_bot_settings', ['setting_key' => $key])->row();
+        if ($existing) {
+            $this->db->where('setting_key', $key);
+            return $this->db->update('whatsapp_bot_settings', [
+                'setting_value' => $value,
+                'updated_at'    => date('Y-m-d H:i:s'),
+            ]);
+        } else {
+            return $this->db->insert('whatsapp_bot_settings', [
+                'setting_key'   => $key,
+                'setting_value' => $value,
+                'created_at'    => date('Y-m-d H:i:s'),
+                'updated_at'    => date('Y-m-d H:i:s'),
+            ]);
+        }
+    }
+
+    /**
+     * Hapus pengaturan berdasarkan key
+     */
+    public function delete_setting($key)
+    {
+        $this->db->where('setting_key', $key);
+        return $this->db->delete('whatsapp_bot_settings');
+    }
 }

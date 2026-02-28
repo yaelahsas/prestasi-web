@@ -237,6 +237,112 @@ class Whatsapp extends CI_Controller {
     }
 
     /**
+     * Test koneksi ke Baileys API
+     */
+    public function test_connection()
+    {
+        header('Content-Type: application/json');
+
+        $baileys_url = $this->_get_baileys_url();
+        $result = $this->_call_baileys_api('GET', $baileys_url . '/');
+
+        if (isset($result['status']) && $result['status'] !== 'error') {
+            echo json_encode([
+                'status'  => 'success',
+                'message' => 'Berhasil terhubung ke Baileys API',
+                'url'     => $baileys_url,
+                'data'    => $result,
+            ]);
+        } else {
+            echo json_encode([
+                'status'  => 'error',
+                'message' => 'Tidak dapat terhubung ke Baileys API: ' . ($result['message'] ?? 'Unknown error'),
+                'url'     => $baileys_url,
+            ]);
+        }
+    }
+
+    /**
+     * Get pengaturan bot WA
+     */
+    public function get_bot_settings()
+    {
+        header('Content-Type: application/json');
+        $settings = $this->Whatsapp_model->get_all_settings();
+        $data = [];
+        foreach ($settings as $s) {
+            $data[$s->setting_key] = $s->setting_value;
+        }
+        echo json_encode(['status' => 'success', 'data' => $data]);
+    }
+
+    /**
+     * Simpan pengaturan bot WA
+     */
+    public function save_bot_settings()
+    {
+        header('Content-Type: application/json');
+
+        if ($this->input->method() !== 'post') {
+            echo json_encode(['status' => 'error', 'message' => 'Method tidak diizinkan']);
+            return;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), TRUE);
+        if (empty($input)) {
+            $input = $this->input->post();
+        }
+
+        // Daftar setting yang diizinkan
+        $allowed_keys = [
+            'BAILEYS_API_URL',
+            'APP_PORT',
+            'MAX_RETRIES',
+            'RECONNECT_INTERVAL',
+            'AUTO_READ_MESSAGES',
+            'APP_WEBHOOK_URL',
+            'APP_WEBHOOK_ALLOWED_EVENTS',
+            'APP_WEBHOOK_FILE_IN_BASE64',
+            'BOT_API_URL',
+            'BOT_API_KEY',
+            'BOT_AUTHORIZED_NUMBERS',
+        ];
+
+        $saved = 0;
+        $errors = [];
+
+        foreach ($allowed_keys as $key) {
+            if (isset($input[$key])) {
+                $value = trim($input[$key]);
+                $result = $this->Whatsapp_model->upsert_setting($key, $value);
+                if ($result) {
+                    $saved++;
+                } else {
+                    $errors[] = $key;
+                }
+            }
+        }
+
+        // Update config baileys_url jika ada
+        if (isset($input['BAILEYS_API_URL'])) {
+            // Update di config runtime (tidak persisten ke file)
+            $this->config->set_item('baileys_url', trim($input['BAILEYS_API_URL']));
+        }
+
+        if (empty($errors)) {
+            echo json_encode([
+                'status'  => 'success',
+                'message' => $saved . ' pengaturan berhasil disimpan',
+            ]);
+        } else {
+            echo json_encode([
+                'status'  => 'warning',
+                'message' => $saved . ' pengaturan disimpan, ' . count($errors) . ' gagal: ' . implode(', ', $errors),
+            ]);
+        }
+    }
+
+    /**
      * Get log pesan
      */
     public function get_message_logs()
@@ -279,11 +385,17 @@ class Whatsapp extends CI_Controller {
     }
 
     /**
-     * Get URL Baileys API dari config atau env
+     * Get URL Baileys API dari database settings, config, atau env
      */
     private function _get_baileys_url()
     {
-        // Ambil dari config (application/config/config.php)
+        // Prioritas 1: Dari database settings
+        $db_url = $this->Whatsapp_model->get_setting('BAILEYS_API_URL');
+        if ($db_url) {
+            return rtrim($db_url, '/');
+        }
+
+        // Prioritas 2: Dari config (application/config/config.php)
         $url = $this->config->item('baileys_url');
         if (!$url) {
             // Fallback ke environment variable atau default
