@@ -119,24 +119,48 @@ $route['sekolah/edit/(:num)'] = 'sekolah/edit_sekolah/$1';
 $route['sekolah/hapus/(:num)'] = 'sekolah/hapus_sekolah/$1';
 $route['sekolah/api/get_sekolah'] = 'sekolah/api_get_sekolah';
 $route['laporan'] = 'laporan';
-$route['laporan/cetak_jurnal_bulanan'] = 'laporan/cetak_jurnal_bulanan';
-$route['laporan/cetak_laporan_guru'] = 'laporan/cetak_laporan_guru';
-$route['laporan/cetak_laporan_kelas'] = 'laporan/cetak_laporan_kelas';
-$route['laporan/cetak_laporan_mapel'] = 'laporan/cetak_laporan_mapel';
-$route['laporan/cetak_rekap_kehadiran'] = 'laporan/cetak_rekap_kehadiran';
+$route['laporan/cetak_jurnal_bulanan']   = 'laporan/cetak_jurnal_bulanan';
+$route['laporan/cetak_laporan_guru']     = 'laporan/cetak_laporan_guru';
+$route['laporan/cetak_laporan_kelas']    = 'laporan/cetak_laporan_kelas';
+$route['laporan/cetak_laporan_mapel']    = 'laporan/cetak_laporan_mapel';
+$route['laporan/cetak_rekap_kehadiran']  = 'laporan/cetak_rekap_kehadiran';
+$route['laporan/cetak_laporan_tahunan']  = 'laporan/cetak_laporan_tahunan';
+$route['laporan/export_csv']             = 'laporan/export_csv';
+
+// Jurnal filter lanjutan & export
+$route['jurnal/filter_lanjutan']         = 'jurnal/filter_lanjutan';
+$route['jurnal/export_csv']              = 'jurnal/export_csv';
+
+// Absensi routes
+$route['absensi']                        = 'absensi';
+$route['absensi/get_data']               = 'absensi/get_absensi_data';
+$route['absensi/get_by_id/(:num)']       = 'absensi/get_absensi_by_id/$1';
+$route['absensi/save']                   = 'absensi/save_absensi';
+$route['absensi/delete/(:num)']          = 'absensi/delete_absensi/$1';
+$route['absensi/get_rekap']              = 'absensi/get_rekap';
+$route['absensi/get_guru']               = 'absensi/get_guru';
+
+// Kalender routes
+$route['kalender']                       = 'kalender';
+$route['kalender/get_events']            = 'kalender/get_events';
+$route['kalender/get_detail_by_date']    = 'kalender/get_detail_by_date';
+
+// Guru Portal routes (self-service untuk guru)
+$route['guru_portal']                    = 'guru_portal';
+$route['guru_portal/jurnal']             = 'guru_portal/jurnal';
+$route['guru_portal/get_jurnal_data']    = 'guru_portal/get_jurnal_data';
+$route['guru_portal/get_jurnal_by_id/(:num)'] = 'guru_portal/get_jurnal_by_id/$1';
+$route['guru_portal/save_jurnal']        = 'guru_portal/save_jurnal';
+$route['guru_portal/delete_jurnal/(:num)'] = 'guru_portal/delete_jurnal/$1';
+$route['guru_portal/absensi']            = 'guru_portal/absensi';
+$route['guru_portal/profil']             = 'guru_portal/profil';
+$route['guru_portal/ganti_password']     = 'guru_portal/ganti_password';
+
 // API routes for statistics
-$route['api/statistik_jurnal'] = 'laporan/get_statistik_jurnal';
-$route['api/total_guru_aktif'] = 'guru/get_total_guru_aktif';
-$route['api/total_kelas_aktif'] = 'kelas/get_total_kelas_aktif';
-$route['api/total_mapel_aktif'] = 'mapel/get_total_mapel_aktif';
-$route['analytics'] = 'analytics';
-$route['analytics/api/dashboard'] = 'analytics/get_dashboard_data';
-$route['analytics/api/revenue'] = 'analytics/get_revenue_data';
-$route['analytics/api/transactions'] = 'analytics/get_transactions';
-$route['analytics/api/kpi'] = 'analytics/get_kpi_data';
-$route['analytics/export'] = 'analytics/export_data';
-$route['analytics/report'] = 'analytics/generate_report';
-$route['analytics/realtime'] = 'analytics/get_realtime_updates';
-$route['analytics/insights'] = 'analytics/get_insights';
+$route['api/statistik_jurnal']           = 'laporan/get_statistik_jurnal';
+$route['api/total_guru_aktif']           = 'guru/get_total_guru_aktif';
+$route['api/total_kelas_aktif']          = 'kelas/get_total_kelas_aktif';
+$route['api/total_mapel_aktif']          = 'mapel/get_total_mapel_aktif';
+
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
