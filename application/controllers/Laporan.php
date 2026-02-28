@@ -866,7 +866,187 @@ img {
 
         echo json_encode([
             'success' => true,
-            'data' => $statistik
+            'data'    => $statistik
         ]);
+    }
+
+    /**
+     * Cetak laporan rekap tahunan (PDF)
+     */
+    public function cetak_laporan_tahunan()
+    {
+        $tahun = $this->input->get('tahun') ?: date('Y');
+
+        // Ambil data per bulan
+        $data_per_bulan = [];
+        $total_keseluruhan = 0;
+        $total_siswa_keseluruhan = 0;
+
+        for ($m = 1; $m <= 12; $m++) {
+            $bulan_str = str_pad($m, 2, '0', STR_PAD_LEFT);
+
+            $this->db->select('COUNT(*) as total_jurnal, SUM(jumlah_siswa) as total_siswa');
+            $this->db->from('bimbel_jurnal');
+            $this->db->where('MONTH(tanggal)', $m);
+            $this->db->where('YEAR(tanggal)', $tahun);
+            $row = $this->db->get()->row();
+
+            $total_jurnal = (int)($row->total_jurnal ?? 0);
+            $total_siswa  = (int)($row->total_siswa  ?? 0);
+            $total_keseluruhan       += $total_jurnal;
+            $total_siswa_keseluruhan += $total_siswa;
+
+            $data_per_bulan[] = [
+                'bulan'        => $this->get_nama_bulan($bulan_str),
+                'total_jurnal' => $total_jurnal,
+                'total_siswa'  => $total_siswa,
+            ];
+        }
+
+        // Top 5 guru paling aktif tahun ini
+        $this->db->select('g.nama_guru, COUNT(j.id_jurnal) as total_jurnal, SUM(j.jumlah_siswa) as total_siswa');
+        $this->db->from('bimbel_jurnal j');
+        $this->db->join('bimbel_guru g', 'j.id_guru = g.id_guru');
+        $this->db->where('YEAR(j.tanggal)', $tahun);
+        $this->db->group_by('j.id_guru');
+        $this->db->order_by('total_jurnal', 'DESC');
+        $this->db->limit(10);
+        $top_guru = $this->db->get()->result();
+
+        // Load DomPDF
+        $this->load->library('dompdf');
+        $pdf = new Dompdf();
+        $pdf->setPaper('A4', 'portrait');
+
+        $tanggal_cetak = format_tanggal_indo(date('Y-m-d'));
+
+        $html = '<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Laporan Tahunan ' . $tahun . '</title>
+<style>
+body { font-family: Helvetica, Arial, sans-serif; font-size: 10px; margin: 15px; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+th, td { border: 1px solid #000; padding: 5px; font-size: 9px; }
+th { text-align: center; font-weight: bold; background-color: #f0f0f0; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.bold { font-weight: bold; }
+.info-box { border: 1px solid #000; padding: 10px; margin-bottom: 10px; }
+.section-title { font-size: 11px; font-weight: bold; margin: 15px 0 5px 0; border-bottom: 2px solid #000; padding-bottom: 3px; }
+</style></head><body>';
+
+        $html .= generate_pdf_header($pdf, 'LAPORAN REKAP TAHUNAN ' . $tahun);
+
+        $html .= '<div class="info-box">
+<table style="width:100%; border:none !important; border-collapse:collapse !important;">
+<tr><td style="border:none !important;width:25%;">Tahun</td><td style="border:none !important;width:2%;">:</td><td style="border:none !important;"><b>' . $tahun . '</b></td></tr>
+<tr><td style="border:none !important;">Tanggal Cetak</td><td style="border:none !important;">:</td><td style="border:none !important;">' . $tanggal_cetak . '</td></tr>
+<tr><td style="border:none !important;">Total Jurnal</td><td style="border:none !important;">:</td><td style="border:none !important;"><b>' . $total_keseluruhan . ' Jurnal</b></td></tr>
+<tr><td style="border:none !important;">Total Siswa</td><td style="border:none !important;">:</td><td style="border:none !important;"><b>' . $total_siswa_keseluruhan . ' Siswa</b></td></tr>
+</table></div>';
+
+        // Tabel rekap per bulan
+        $html .= '<div class="section-title">REKAP JURNAL PER BULAN</div>';
+        $html .= '<table><thead><tr>
+<th style="width:10%">No</th>
+<th style="width:40%">Bulan</th>
+<th style="width:25%">Total Jurnal</th>
+<th style="width:25%">Total Siswa</th>
+</tr></thead><tbody>';
+
+        $no = 1;
+        foreach ($data_per_bulan as $d) {
+            $html .= '<tr>
+<td class="text-center">' . $no++ . '</td>
+<td>' . $d['bulan'] . ' ' . $tahun . '</td>
+<td class="text-center">' . $d['total_jurnal'] . '</td>
+<td class="text-center">' . $d['total_siswa'] . '</td>
+</tr>';
+        }
+
+        $html .= '<tr>
+<td colspan="2" class="text-center bold">TOTAL</td>
+<td class="text-center bold">' . $total_keseluruhan . '</td>
+<td class="text-center bold">' . $total_siswa_keseluruhan . '</td>
+</tr></tbody></table>';
+
+        // Tabel top guru
+        if (!empty($top_guru)) {
+            $html .= '<div class="section-title">TOP 10 GURU PALING AKTIF TAHUN ' . $tahun . '</div>';
+            $html .= '<table><thead><tr>
+<th style="width:8%">No</th>
+<th style="width:50%">Nama Guru</th>
+<th style="width:21%">Total Jurnal</th>
+<th style="width:21%">Total Siswa</th>
+</tr></thead><tbody>';
+
+            $no = 1;
+            foreach ($top_guru as $g) {
+                $html .= '<tr>
+<td class="text-center">' . $no++ . '</td>
+<td>' . $g->nama_guru . '</td>
+<td class="text-center">' . $g->total_jurnal . '</td>
+<td class="text-center">' . ($g->total_siswa ?? 0) . '</td>
+</tr>';
+            }
+            $html .= '</tbody></table>';
+        }
+
+        $html .= generate_pdf_footer($pdf, 'Srono', $tanggal_cetak);
+        $html .= '</body></html>';
+
+        $pdf->loadHtml($html);
+        $pdf->render();
+        $pdf->stream('laporan_tahunan_' . $tahun . '.pdf', ['Attachment' => 0]);
+    }
+
+    /**
+     * Export laporan ke CSV
+     */
+    public function export_csv()
+    {
+        $bulan = $this->input->get('bulan') ?: date('m');
+        $tahun = $this->input->get('tahun') ?: date('Y');
+        $tipe  = $this->input->get('tipe') ?: 'bulanan'; // bulanan | tahunan
+
+        if ($tipe === 'tahunan') {
+            $this->db->select('j.tanggal, g.nama_guru, k.nama_kelas, m.nama_mapel, j.materi, j.jumlah_siswa, j.keterangan, u.nama as penginput');
+            $this->db->from('bimbel_jurnal j');
+            $this->db->join('bimbel_guru g', 'j.id_guru = g.id_guru');
+            $this->db->join('bimbel_kelas k', 'j.id_kelas = k.id_kelas');
+            $this->db->join('bimbel_mapel m', 'j.id_mapel = m.id_mapel');
+            $this->db->join('bimbel_users u', 'j.created_by = u.id_user');
+            $this->db->where('YEAR(j.tanggal)', $tahun);
+            $this->db->order_by('j.tanggal', 'ASC');
+            $data = $this->db->get()->result();
+            $filename = 'laporan_tahunan_' . $tahun . '.csv';
+        } else {
+            $data_jurnal = $this->Laporan_model->get_jurnal_by_bulan_tahun($bulan, $tahun);
+            $data = $data_jurnal;
+            $filename = 'laporan_bulanan_' . $bulan . '_' . $tahun . '.csv';
+        }
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+
+        $output = fopen('php://output', 'w');
+        fputs($output, "\xEF\xBB\xBF"); // BOM UTF-8
+
+        fputcsv($output, ['Tanggal', 'Guru', 'Kelas', 'Mata Pelajaran', 'Materi', 'Jumlah Siswa', 'Keterangan', 'Penginput']);
+
+        foreach ($data as $row) {
+            fputcsv($output, [
+                date('d/m/Y', strtotime($row->tanggal)),
+                $row->nama_guru,
+                $row->nama_kelas,
+                $row->nama_mapel,
+                $row->materi,
+                $row->jumlah_siswa,
+                $row->keterangan ?? '',
+                $row->nama_penginput ?? ($row->penginput ?? ''),
+            ]);
+        }
+
+        fclose($output);
+        exit;
     }
 }

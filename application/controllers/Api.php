@@ -17,7 +17,7 @@ class Api extends CI_Controller
         $this->load->model('Sekolah_model');
         $this->load->helper(array('pdf_helper', 'date'));
         $this->load->helper('tanggal');
-
+        $this->load->helper('image'); // untuk kompresi foto
 
         // Set response header to JSON
         header('Content-Type: application/json');
@@ -265,34 +265,65 @@ class Api extends CI_Controller
     }
 
     /**
-     * Upload base64 image
-     * @param string $base64_string
-     * @return string|null
+     * Upload base64 image dengan kompresi otomatis
+     *
+     * Gambar dikompres setelah disimpan:
+     * - Resize ke maks 1200x1200 px (proporsional)
+     * - Kualitas JPEG 75%
+     * - Semua format dikonversi ke JPEG
+     *
+     * @param string $base64_string  Data URI base64 (data:image/xxx;base64,...)
+     * @param int    $max_width      Lebar maks px (default 1200)
+     * @param int    $max_height     Tinggi maks px (default 1200)
+     * @param int    $quality        Kualitas JPEG 1-100 (default 75)
+     * @return string|null  Nama file hasil upload, atau null jika gagal
      */
-    private function _upload_base64_image($base64_string)
+    private function _upload_base64_image($base64_string, $max_width = 1200, $max_height = 1200, $quality = 75)
     {
         try {
-            // Extract file extension
-            if (preg_match('/^data:image\/(\w+);base64,/', $base64_string, $matches)) {
-                $image_type = $matches[1];
-                $base64_string = substr($base64_string, strpos($base64_string, ',') + 1);
-                $base64_string = base64_decode($base64_string);
-
-                if ($base64_string === false) {
-                    return null;
-                }
-
-                // Generate unique filename
-                $filename = uniqid() . '.' . $image_type;
-                $filepath = './assets/uploads/foto_kegiatan/' . $filename;
-
-                // Save file
-                if (file_put_contents($filepath, $base64_string)) {
-                    return $filename;
-                }
+            // Extract MIME type dan data
+            if (!preg_match('/^data:image\/(\w+);base64,/', $base64_string, $matches)) {
+                log_message('error', '_upload_base64_image: format base64 tidak valid');
+                return null;
             }
+
+            $image_type    = strtolower($matches[1]);
+            $binary_data   = base64_decode(substr($base64_string, strpos($base64_string, ',') + 1));
+
+            if ($binary_data === false || strlen($binary_data) === 0) {
+                log_message('error', '_upload_base64_image: gagal decode base64');
+                return null;
+            }
+
+            $upload_dir = './assets/uploads/foto_kegiatan/';
+
+            // Nama file output selalu .jpg setelah kompresi
+            $base_name       = md5(uniqid(rand(), true));
+            $compressed_name = $base_name . '.jpg';
+            $compressed_path = $upload_dir . $compressed_name;
+
+            // Kompres langsung dari binary string
+            $compressed = compress_image_from_string($binary_data, $compressed_path, $max_width, $max_height, $quality);
+
+            if ($compressed && file_exists($compressed_path)) {
+                log_message('debug', sprintf(
+                    '_upload_base64_image: berhasil disimpan %s (%.1f KB)',
+                    $compressed_name,
+                    get_image_size_kb($compressed_path)
+                ));
+                return $compressed_name;
+            }
+
+            // Fallback: simpan file original tanpa kompresi
+            log_message('error', '_upload_base64_image: kompresi gagal, simpan original');
+            $fallback_name = $base_name . '.' . $image_type;
+            $fallback_path = $upload_dir . $fallback_name;
+            if (file_put_contents($fallback_path, $binary_data)) {
+                return $fallback_name;
+            }
+
         } catch (Exception $e) {
-            log_message('error', 'Error uploading base64 image: ' . $e->getMessage());
+            log_message('error', '_upload_base64_image error: ' . $e->getMessage());
         }
 
         return null;

@@ -1,20 +1,19 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Jurnal extends CI_Controller {
+class Jurnal extends MY_Controller {
 
     public function __construct()
     {
         parent::__construct();
-        // Load input library (core library that can't be autoloaded)
-        
-        // Cek jika user belum login
-        if (!$this->session->userdata('logged_in')) {
-            redirect('auth');
-        }
+        $this->requireLogin();
+
         // Load model
         $this->load->model('Jurnal_model');
         $this->load->model('Dashboard_model');
+        $this->load->model('Guru_model');
+        $this->load->model('Kelas_model');
+        $this->load->model('Mapel_model');
     }
 
     /**
@@ -23,10 +22,14 @@ class Jurnal extends CI_Controller {
      */
     public function index()
     {
-        $data['user'] = $this->session->userdata();
+        $data['user']         = $this->session->userdata();
         $data['total_jurnal'] = $this->Jurnal_model->get_total_jurnal();
-        $data['total_hari'] = $this->Jurnal_model->get_total_jurnal_hari_ini();
-        $data['total_bulan'] = $this->Jurnal_model->get_total_jurnal_bulan_ini();
+        $data['total_hari']   = $this->Jurnal_model->get_total_jurnal_hari_ini();
+        $data['total_bulan']  = $this->Jurnal_model->get_total_jurnal_bulan_ini();
+        // Data untuk filter dropdown
+        $data['guru_list']    = $this->Guru_model->get_all_guru();
+        $data['kelas_list']   = $this->Kelas_model->get_all_kelas();
+        $data['mapel_list']   = $this->Mapel_model->get_all_mapel();
         $this->load->view('jurnal/index', $data);
     }
 
@@ -232,12 +235,12 @@ class Jurnal extends CI_Controller {
      */
     public function filter_by_tanggal()
     {
-        $tanggal_awal = $this->input->get('tanggal_awal');
+        $tanggal_awal  = $this->input->get('tanggal_awal');
         $tanggal_akhir = $this->input->get('tanggal_akhir');
         
         if (!$tanggal_awal || !$tanggal_akhir) {
             echo json_encode([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'Tanggal awal dan tanggal akhir harus diisi'
             ]);
             return;
@@ -247,7 +250,129 @@ class Jurnal extends CI_Controller {
         
         echo json_encode([
             'status' => 'success',
-            'data' => $jurnal
+            'data'   => $jurnal
         ]);
+    }
+
+    /**
+     * Filter lanjutan jurnal (kombinasi tanggal + guru + kelas + mapel)
+     * @return void
+     */
+    public function filter_lanjutan()
+    {
+        $tanggal_awal  = $this->input->get('tanggal_awal');
+        $tanggal_akhir = $this->input->get('tanggal_akhir');
+        $id_guru       = $this->input->get('id_guru');
+        $id_kelas      = $this->input->get('id_kelas');
+        $id_mapel      = $this->input->get('id_mapel');
+        $keyword       = $this->input->get('keyword');
+
+        $this->db->select('j.*, g.nama_guru, g.nip, k.nama_kelas, m.nama_mapel, u.nama as nama_penginput');
+        $this->db->from('bimbel_jurnal j');
+        $this->db->join('bimbel_guru g', 'j.id_guru = g.id_guru');
+        $this->db->join('bimbel_kelas k', 'j.id_kelas = k.id_kelas');
+        $this->db->join('bimbel_mapel m', 'j.id_mapel = m.id_mapel');
+        $this->db->join('bimbel_users u', 'j.created_by = u.id_user');
+
+        if ($tanggal_awal)  $this->db->where('j.tanggal >=', $tanggal_awal);
+        if ($tanggal_akhir) $this->db->where('j.tanggal <=', $tanggal_akhir);
+        if ($id_guru)       $this->db->where('j.id_guru', $id_guru);
+        if ($id_kelas)      $this->db->where('j.id_kelas', $id_kelas);
+        if ($id_mapel)      $this->db->where('j.id_mapel', $id_mapel);
+
+        if ($keyword) {
+            $this->db->group_start();
+            $this->db->like('j.materi', $keyword);
+            $this->db->or_like('g.nama_guru', $keyword);
+            $this->db->or_like('k.nama_kelas', $keyword);
+            $this->db->or_like('m.nama_mapel', $keyword);
+            $this->db->group_end();
+        }
+
+        $this->db->order_by('j.tanggal', 'DESC');
+        $this->db->order_by('j.created_at', 'DESC');
+        $jurnal = $this->db->get()->result();
+
+        $data = [];
+        foreach ($jurnal as $j) {
+            $row   = [];
+            $row[] = $j->id_jurnal;
+            $row[] = date('d/m/Y', strtotime($j->tanggal));
+            $row[] = $j->nama_guru;
+            $row[] = $j->nama_kelas;
+            $row[] = $j->nama_mapel;
+            $row[] = substr($j->materi, 0, 50) . (strlen($j->materi) > 50 ? '...' : '');
+            $row[] = $j->jumlah_siswa;
+            $row[] = $j->foto_bukti
+                ? '<img src="' . base_url('assets/uploads/foto_kegiatan/' . $j->foto_bukti) . '" style="width:50px;height:50px;object-fit:cover;border-radius:8px;" onclick="viewImage(\'' . $j->foto_bukti . '\')" style="cursor:pointer;">'
+                : '<span class="text-gray-400">Tidak ada</span>';
+            $row[] = '<div class="flex gap-1">
+                        <button onclick="editJurnal(' . $j->id_jurnal . ')" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"><i class="fas fa-edit"></i></button>
+                        <button onclick="deleteJurnal(' . $j->id_jurnal . ')" class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"><i class="fas fa-trash"></i></button>
+                        <button onclick="viewJurnal(' . $j->id_jurnal . ')" class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"><i class="fas fa-eye"></i></button>
+                      </div>';
+            $data[] = $row;
+        }
+
+        echo json_encode(['data' => $data, 'total' => count($data)]);
+    }
+
+    /**
+     * Export jurnal ke CSV
+     * @return void
+     */
+    public function export_csv()
+    {
+        $tanggal_awal  = $this->input->get('tanggal_awal');
+        $tanggal_akhir = $this->input->get('tanggal_akhir');
+        $id_guru       = $this->input->get('id_guru');
+        $id_kelas      = $this->input->get('id_kelas');
+        $id_mapel      = $this->input->get('id_mapel');
+
+        $this->db->select('j.tanggal, g.nama_guru, g.nip, k.nama_kelas, m.nama_mapel, j.materi, j.jumlah_siswa, j.keterangan, u.nama as nama_penginput, j.created_at');
+        $this->db->from('bimbel_jurnal j');
+        $this->db->join('bimbel_guru g', 'j.id_guru = g.id_guru');
+        $this->db->join('bimbel_kelas k', 'j.id_kelas = k.id_kelas');
+        $this->db->join('bimbel_mapel m', 'j.id_mapel = m.id_mapel');
+        $this->db->join('bimbel_users u', 'j.created_by = u.id_user');
+
+        if ($tanggal_awal)  $this->db->where('j.tanggal >=', $tanggal_awal);
+        if ($tanggal_akhir) $this->db->where('j.tanggal <=', $tanggal_akhir);
+        if ($id_guru)       $this->db->where('j.id_guru', $id_guru);
+        if ($id_kelas)      $this->db->where('j.id_kelas', $id_kelas);
+        if ($id_mapel)      $this->db->where('j.id_mapel', $id_mapel);
+
+        $this->db->order_by('j.tanggal', 'DESC');
+        $jurnal = $this->db->get()->result();
+
+        $filename = 'export_jurnal_' . date('Ymd_His') . '.csv';
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+
+        $output = fopen('php://output', 'w');
+        // BOM untuk Excel UTF-8
+        fputs($output, "\xEF\xBB\xBF");
+
+        // Header CSV
+        fputcsv($output, ['Tanggal', 'Nama Guru', 'NIP', 'Kelas', 'Mata Pelajaran', 'Materi', 'Jumlah Siswa', 'Keterangan', 'Penginput', 'Waktu Input']);
+
+        foreach ($jurnal as $j) {
+            fputcsv($output, [
+                date('d/m/Y', strtotime($j->tanggal)),
+                $j->nama_guru,
+                $j->nip,
+                $j->nama_kelas,
+                $j->nama_mapel,
+                $j->materi,
+                $j->jumlah_siswa,
+                $j->keterangan,
+                $j->nama_penginput,
+                date('d/m/Y H:i', strtotime($j->created_at)),
+            ]);
+        }
+
+        fclose($output);
+        exit;
     }
 }
