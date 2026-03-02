@@ -401,6 +401,214 @@ function closeQRModal() {
     currentQRSession = null;
 }
 
+// ===== PAIRING CODE =====
+
+let currentPairingSession = null;
+
+/**
+ * Tampilkan modal pairing code (step 1: input nomor telepon)
+ */
+function showPairingCode(sessionId) {
+    currentPairingSession = sessionId;
+    document.getElementById('pairingSessionLabel').textContent = 'Session: ' + sessionId;
+    document.getElementById('pairingStep2SessionLabel').textContent = 'Session: ' + sessionId;
+    document.getElementById('pairingPhone').value = '';
+    document.getElementById('pairingStatus').classList.add('hidden');
+
+    // Show step 1, hide step 2
+    document.getElementById('pairingStep1').classList.remove('hidden');
+    document.getElementById('pairingStep2').classList.add('hidden');
+
+    document.getElementById('modalPairingCode').classList.remove('hidden');
+    setTimeout(() => document.getElementById('pairingPhone').focus(), 100);
+}
+
+/**
+ * Minta kode pairing dari Baileys API
+ */
+function requestPairingCode() {
+    const phone = document.getElementById('pairingPhone').value.trim().replace(/[^0-9]/g, '');
+
+    if (!phone) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Nomor Kosong',
+            text: 'Masukkan nomor WhatsApp terlebih dahulu',
+            confirmButtonColor: '#a855f7',
+        });
+        return;
+    }
+
+    if (!/^62\d{8,14}$/.test(phone)) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Format Nomor Salah',
+            text: 'Gunakan format: 628xxxxxxxxxx (tanpa + atau 0 di depan)',
+            confirmButtonColor: '#a855f7',
+        });
+        return;
+    }
+
+    // Switch to step 2 and show loading
+    document.getElementById('pairingStep1').classList.add('hidden');
+    document.getElementById('pairingStep2').classList.remove('hidden');
+    document.getElementById('pairingCodeDisplay').innerHTML = `
+        <div class="text-center text-gray-400">
+            <i class="fas fa-spinner fa-spin text-3xl mb-3 block text-purple-500"></i>
+            <p class="text-sm">Meminta kode pairing...</p>
+        </div>
+    `;
+
+    $.ajax({
+        url: base_url + 'whatsapp/get_pairing_code/' + currentPairingSession + '?phone=' + encodeURIComponent(phone),
+        method: 'GET',
+        timeout: 20000,
+        success: function(res) {
+            if (res && (res.code || res.pairingCode || res.pairing_code)) {
+                const code = res.code || res.pairingCode || res.pairing_code;
+                // Format kode menjadi XXXX-XXXX jika 8 karakter
+                const formatted = code.length === 8
+                    ? code.substring(0, 4) + '-' + code.substring(4)
+                    : code;
+
+                document.getElementById('pairingCodeDisplay').innerHTML = `
+                    <div class="text-center">
+                        <div class="bg-purple-50 border-2 border-purple-200 rounded-2xl px-8 py-5 inline-block mb-3">
+                            <p class="text-4xl font-bold font-mono tracking-widest text-purple-700 select-all">${escHtml(formatted)}</p>
+                        </div>
+                        <p class="text-xs text-gray-400">Ketuk kode untuk menyalin</p>
+                    </div>
+                `;
+
+                // Click to copy
+                const codeEl = document.querySelector('#pairingCodeDisplay .text-4xl');
+                if (codeEl) {
+                    codeEl.style.cursor = 'pointer';
+                    codeEl.title = 'Klik untuk menyalin';
+                    codeEl.addEventListener('click', function() {
+                        navigator.clipboard.writeText(code).then(() => {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Disalin!',
+                                text: 'Kode pairing disalin ke clipboard',
+                                confirmButtonColor: '#a855f7',
+                                timer: 1500,
+                                showConfirmButton: false,
+                            });
+                        }).catch(() => {});
+                    });
+                }
+
+                // Poll for connection status
+                pollPairingStatus(currentPairingSession);
+
+            } else if (res && res.status === 'connected') {
+                document.getElementById('pairingCodeDisplay').innerHTML = `
+                    <div class="text-center">
+                        <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-check-circle text-4xl text-school-green"></i>
+                        </div>
+                        <p class="text-green-600 font-medium">Sudah Terhubung!</p>
+                    </div>
+                `;
+                document.getElementById('pairingStatus').classList.remove('hidden');
+                updateCardStatus(currentPairingSession, 'connected');
+                updateSessionCount();
+            } else {
+                const errMsg = res.message || 'Tidak dapat mendapatkan kode pairing. Pastikan server Baileys berjalan.';
+                document.getElementById('pairingCodeDisplay').innerHTML = `
+                    <div class="text-center text-gray-400">
+                        <div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-times-circle text-2xl text-red-400"></i>
+                        </div>
+                        <p class="text-sm text-red-500">${escHtml(errMsg)}</p>
+                        <p class="text-xs mt-1 text-gray-400">Pastikan server Baileys mendukung pairing code</p>
+                    </div>
+                `;
+            }
+        },
+        error: function(xhr) {
+            let msg = 'Tidak dapat terhubung ke server';
+            try {
+                const r = JSON.parse(xhr.responseText);
+                msg = r.message || msg;
+            } catch(e) {}
+            document.getElementById('pairingCodeDisplay').innerHTML = `
+                <div class="text-center text-gray-400">
+                    <div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-times-circle text-2xl text-red-400"></i>
+                    </div>
+                    <p class="text-sm text-red-500">${escHtml(msg)}</p>
+                </div>
+            `;
+        }
+    });
+}
+
+/**
+ * Poll status koneksi setelah pairing code ditampilkan
+ */
+let pairingPollInterval = null;
+
+function pollPairingStatus(sessionId) {
+    clearInterval(pairingPollInterval);
+    let attempts = 0;
+    const maxAttempts = 24; // 2 menit (24 x 5 detik)
+
+    pairingPollInterval = setInterval(function() {
+        attempts++;
+        if (attempts > maxAttempts) {
+            clearInterval(pairingPollInterval);
+            return;
+        }
+
+        $.ajax({
+            url: base_url + 'whatsapp/get_status/' + sessionId,
+            method: 'GET',
+            success: function(res) {
+                const status = res.data ? (res.data.status || 'disconnected') : 'disconnected';
+                if (status === 'connected') {
+                    clearInterval(pairingPollInterval);
+                    document.getElementById('pairingStatus').classList.remove('hidden');
+                    document.getElementById('pairingCodeDisplay').innerHTML = `
+                        <div class="text-center">
+                            <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <i class="fas fa-check-circle text-4xl text-school-green"></i>
+                            </div>
+                            <p class="text-green-600 font-medium">Berhasil Terhubung!</p>
+                        </div>
+                    `;
+                    updateCardStatus(sessionId, 'connected');
+                    updateSessionCount();
+                }
+            }
+        });
+    }, 5000);
+}
+
+/**
+ * Kembali ke step 1 (input nomor)
+ */
+function backToPairingStep1() {
+    clearInterval(pairingPollInterval);
+    document.getElementById('pairingStep1').classList.remove('hidden');
+    document.getElementById('pairingStep2').classList.add('hidden');
+    document.getElementById('pairingStatus').classList.add('hidden');
+}
+
+/**
+ * Tutup modal pairing code
+ */
+function closePairingModal() {
+    clearInterval(pairingPollInterval);
+    document.getElementById('modalPairingCode').classList.add('hidden');
+    document.getElementById('pairingStep1').classList.remove('hidden');
+    document.getElementById('pairingStep2').classList.add('hidden');
+    document.getElementById('pairingStatus').classList.add('hidden');
+    document.getElementById('pairingPhone').value = '';
+    currentPairingSession = null;
+}
+
 // ===== SEND MESSAGE =====
 
 function sendMessage() {
@@ -617,6 +825,7 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeQRModal();
         closeAddSessionModal();
+        closePairingModal();
     }
 });
 

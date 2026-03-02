@@ -293,10 +293,20 @@
                                 <!-- Action Buttons -->
                                 <div class="flex gap-2 flex-wrap">
                                     <?php if ($session->status !== 'connected'): ?>
-                                    <button onclick="showQR('<?= $session->session_id ?>')"
-                                        class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-green-50 text-school-green hover:bg-school-green hover:text-white rounded-lg text-xs font-medium transition-all">
-                                        <i class="fas fa-qrcode"></i> QR Code
-                                    </button>
+                                    <div class="flex-1 flex gap-1.5">
+                                        <button onclick="showQR('<?= $session->session_id ?>')"
+                                            class="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-green-50 text-school-green hover:bg-school-green hover:text-white rounded-lg text-xs font-medium transition-all"
+                                            title="Hubungkan via QR Code">
+                                            <i class="fas fa-qrcode"></i>
+                                            <span class="hidden sm:inline">QR</span>
+                                        </button>
+                                        <button onclick="showPairingCode('<?= $session->session_id ?>')"
+                                            class="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-purple-50 text-purple-600 hover:bg-purple-500 hover:text-white rounded-lg text-xs font-medium transition-all"
+                                            title="Hubungkan via Kode Pairing">
+                                            <i class="fas fa-key"></i>
+                                            <span class="hidden sm:inline">Kode</span>
+                                        </button>
+                                    </div>
                                     <?php else: ?>
                                     <button onclick="logoutSession('<?= $session->session_id ?>')"
                                         class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-orange-50 text-orange-600 hover:bg-orange-500 hover:text-white rounded-lg text-xs font-medium transition-all">
@@ -701,17 +711,21 @@
                                     <span>Klik <strong>Tambah Sesi</strong> dan masukkan ID sesi yang unik</span>
                                 </li>
                                 <li class="flex gap-2">
-                                    <span class="w-5 h-5 bg-blue-200 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
-                                    <span>Klik tombol <strong>QR Code</strong> pada kartu sesi yang baru dibuat</span>
-                                </li>
-                                <li class="flex gap-2">
-                                    <span class="w-5 h-5 bg-blue-200 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">4</span>
-                                    <span>Scan QR Code menggunakan WhatsApp di ponsel Anda</span>
-                                </li>
-                                <li class="flex gap-2">
-                                    <span class="w-5 h-5 bg-blue-200 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">5</span>
-                                    <span>Setelah terhubung, bot siap menerima perintah dari grup WhatsApp</span>
-                                </li>
+                                     <span class="w-5 h-5 bg-blue-200 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
+                                     <span>Pilih metode koneksi: klik <strong><i class="fas fa-qrcode text-xs"></i> QR</strong> untuk scan QR Code, atau <strong><i class="fas fa-key text-xs"></i> Kode</strong> untuk pairing code</span>
+                                 </li>
+                                 <li class="flex gap-2">
+                                     <span class="w-5 h-5 bg-blue-200 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">4</span>
+                                     <span><strong>Via QR:</strong> Scan QR Code menggunakan WhatsApp &rarr; Perangkat Tertaut &rarr; Tautkan Perangkat</span>
+                                 </li>
+                                 <li class="flex gap-2">
+                                     <span class="w-5 h-5 bg-blue-200 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">4b</span>
+                                     <span><strong>Via Kode:</strong> Masukkan nomor WA, salin kode 8 digit, lalu masukkan di WhatsApp &rarr; Perangkat Tertaut &rarr; Tautkan dengan nomor telepon</span>
+                                 </li>
+                                 <li class="flex gap-2">
+                                     <span class="w-5 h-5 bg-blue-200 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">5</span>
+                                     <span>Setelah terhubung, bot siap menerima perintah dari grup WhatsApp</span>
+                                 </li>
                             </ol>
                         </div>
                     </div>
@@ -818,6 +832,97 @@
         </div>
     </div>
 
+    <!-- ===== MODAL: PAIRING CODE ===== -->
+    <div id="modalPairingCode" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div class="flex items-center justify-between p-6 border-b border-gray-100">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-key text-purple-500 text-lg"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-800">Kode Pairing</h3>
+                </div>
+                <button onclick="closePairingModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Step 1: Input phone number -->
+            <div id="pairingStep1" class="p-6">
+                <p class="text-sm text-gray-600 mb-1">Masukkan nomor WhatsApp yang akan dihubungkan ke sesi:</p>
+                <p class="text-xs font-mono text-gray-400 mb-4" id="pairingSessionLabel">-</p>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Nomor WhatsApp</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">+</span>
+                        <input type="text" id="pairingPhone" placeholder="628xxxxxxxxxx"
+                            class="w-full border border-gray-200 rounded-xl pl-7 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent font-mono">
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1">Format: 628xxxxxxxxxx (tanpa + atau 0 di depan)</p>
+                </div>
+
+                <div class="bg-purple-50 rounded-xl p-3 mb-4 text-xs text-purple-700">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Kode pairing memungkinkan Anda menghubungkan WhatsApp tanpa scan QR Code. Buka WhatsApp &rarr; Perangkat Tertaut &rarr; Tautkan Perangkat &rarr; Tautkan dengan nomor telepon.
+                </div>
+
+                <div class="flex gap-3">
+                    <button onclick="closePairingModal()"
+                        class="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-all">
+                        Batal
+                    </button>
+                    <button onclick="requestPairingCode()"
+                        class="flex-1 px-4 py-2.5 bg-purple-500 text-white rounded-xl text-sm font-medium hover:bg-purple-600 transition-all flex items-center justify-center gap-2">
+                        <i class="fas fa-key text-xs"></i> Dapatkan Kode
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: Show pairing code -->
+            <div id="pairingStep2" class="p-6 hidden">
+                <p class="text-sm text-gray-600 mb-1 text-center">Masukkan kode ini di WhatsApp Anda:</p>
+                <p class="text-xs font-mono text-gray-400 mb-4 text-center" id="pairingStep2SessionLabel">-</p>
+
+                <div id="pairingCodeDisplay" class="flex items-center justify-center min-h-24 mb-4">
+                    <div class="text-center text-gray-400">
+                        <i class="fas fa-spinner fa-spin text-3xl mb-3 block text-purple-500"></i>
+                        <p class="text-sm">Memuat kode pairing...</p>
+                    </div>
+                </div>
+
+                <div id="pairingStatus" class="hidden mb-4">
+                    <div class="flex items-center justify-center gap-2 text-green-600 bg-green-50 rounded-xl px-4 py-2">
+                        <i class="fas fa-check-circle"></i>
+                        <span class="text-sm font-medium">Berhasil terhubung!</span>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 rounded-xl p-3 mb-4 text-xs text-blue-700">
+                    <strong><i class="fas fa-mobile-alt mr-1"></i>Cara menggunakan:</strong>
+                    <ol class="mt-1 space-y-0.5 list-decimal list-inside">
+                        <li>Buka WhatsApp di ponsel Anda</li>
+                        <li>Ketuk <strong>Perangkat Tertaut</strong></li>
+                        <li>Ketuk <strong>Tautkan Perangkat</strong></li>
+                        <li>Pilih <strong>Tautkan dengan nomor telepon</strong></li>
+                        <li>Masukkan kode 8 digit di atas</li>
+                    </ol>
+                </div>
+
+                <div class="flex gap-3">
+                    <button onclick="backToPairingStep1()"
+                        class="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-all flex items-center justify-center gap-2">
+                        <i class="fas fa-arrow-left text-xs"></i> Kembali
+                    </button>
+                    <button onclick="closePairingModal()"
+                        class="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-all">
+                        Tutup
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="<?= base_url('assets/js/whatsapp/whatsapp.js') ?>"></script>
     <script>
         // Sidebar toggle
@@ -840,6 +945,11 @@
         // Load logs on tab switch
         document.addEventListener('DOMContentLoaded', function() {
             checkServerStatus();
+        });
+
+        // Close pairing modal on outside click
+        document.getElementById('modalPairingCode').addEventListener('click', function(e) {
+            if (e.target === this) closePairingModal();
         });
     </script>
 </body>

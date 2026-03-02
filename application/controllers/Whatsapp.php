@@ -70,6 +70,36 @@ class Whatsapp extends CI_Controller {
     }
 
     /**
+     * Get Pairing Code untuk session (metode alternatif tanpa scan QR)
+     */
+    public function get_pairing_code($session_id = null)
+    {
+        header('Content-Type: application/json');
+
+        if (!$session_id) {
+            echo json_encode(['status' => 'error', 'message' => 'Session ID diperlukan']);
+            return;
+        }
+
+        $phone_number = $this->input->get('phone');
+        if (empty($phone_number)) {
+            echo json_encode(['status' => 'error', 'message' => 'Nomor telepon diperlukan untuk pairing code']);
+            return;
+        }
+
+        // Bersihkan nomor telepon (hanya angka)
+        $phone_number = preg_replace('/[^0-9]/', '', $phone_number);
+
+        $baileys_url = $this->_get_baileys_url();
+        $result = $this->_call_baileys_api(
+            'GET',
+            $baileys_url . '/session/pairing-code/' . $session_id . '?phone=' . urlencode($phone_number)
+        );
+
+        echo json_encode($result);
+    }
+
+    /**
      * Tambah / buat session baru
      */
     public function add_session()
