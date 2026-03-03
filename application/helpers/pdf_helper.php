@@ -29,24 +29,23 @@ if (!function_exists('generate_pdf_header')) {
         if ($sekolah) {
             $html .= '<div style="text-align: center; margin-bottom: 20px;">';
 
-            // Add logo if exists
-            if ($sekolah['logo']) {
-                $logo_path = base_url() . 'assets/uploads/logo/' . $sekolah['logo'];
-                $html .= '<img src="' . $logo_path . '" style="width: 60px; height: auto; margin-bottom: 10px;" />';
-            }
+            // Add journal title
+            $html .= '<h1 style="margin: 5px 0; font-weight: bold; font-size: 16px;">JURNAL BIMBINGAN KELAS UNGGULAN AKADEMIK</h1>';
 
             // Add school name
-            $html .= '<h2 style="margin: 5px 0; font-weight: bold;">' . $sekolah['nama_sekolah'] . '</h2>';
+            $html .= '<h2 style="margin: 5px 0; font-weight: bold; font-size: 14px;">MTsN 3 BANYUWANGI</h2>';
 
-            // Add address
-            $html .= '<p style="margin: 5px 0; font-size: 10px;">' . $sekolah['alamat'] . '</p>';
+            // Add academic year (automatic calculation)
+            $current_year = date('Y');
+            $next_year = $current_year + 1;
+            $html .= '<p style="margin: 5px 0; font-size: 12px;">Tahun Pelajaran ' . $current_year . '/' . $next_year . '</p>';
 
             // Add line
             $html .= '<hr style="margin: 10px 0;" />';
 
-            // Add document title
+            // Add document title if provided
             if ($title) {
-                $html .= '<h3 style="margin: 10px 0; font-weight: bold;">' . $title . '</h3>';
+                $html .= '<h3 style="margin: 10px 0; font-weight: bold;">' . strtoupper($title) . '</h3>';
             }
 
             $html .= '</div>';
@@ -80,14 +79,16 @@ if (!function_exists('generate_pdf_footer')) {
             border-collapse: collapse;
         ">
             <tr>
-                <td style="width:60%; border:none; vertical-align:top;">';
+                <td style="width:50%; border:none; vertical-align:top;">';
+            $html .= '</td>';
+            $html .= '<td style="width:50%; border:none; vertical-align:top; text-align: right;">';
 
             // ===== BAGIAN LOKASI & TANGGAL =====
             if (!empty($location) || !empty($date)) {
-                $html .= '<div style="text-align: right; margin-bottom: 10px;">';
+                $html .= '<div style="text-align: right; margin-bottom: 10px; margin-right: 5px;">';
 
                 if (!empty($location) && !empty($date)) {
-                    $html .= '<p style="margin: 3px 0;">' . $location . ', ' . $date . '</p>';
+                    $html .= '<p style="margin: 5px 0;">' . $location . ', ' . $date . '</p>';
                 } else if (!empty($location)) {
                     $html .= '<p style="margin: 3px 0;">' . $location . '</p>';
                 } else if (!empty($date)) {
@@ -97,39 +98,22 @@ if (!function_exists('generate_pdf_footer')) {
                 $html .= '</div>';
             }
 
-            // ===== GENERATE QR CODE =====
-            $qr_text = "QR Code ini merupakan penanda keaslian laporan.\nTanggal Cetak: " . format_tanggal_indo(date('Y-m-d')) . " " . date('H:i') . ".\nSistem dikembangkan oleh Sastra.";
-
-            $qr_base64 = generate_simple_qr_base64($qr_text);
-
             // ===== BAGIAN TANDA TANGAN =====
-            $html .= '<table style="width: 100%;  border:none;">';
-            $html .= '<tr>';
-            $html .= '<td style="width: 60%;"></td>';
-
-            $html .= '<td style="width: 40%; text-align: right; vertical-align: top;">';
+            $html .= '<div style="display: inline-block; text-align: left;">';
             $html .= '<p style="margin: 5px 0;">Mengetahui,</p>';
-            $html .= '<p style="margin: 5px 0;">Kepala Sekolah</p>';
+            $html .= '<p style="margin: 5px 0;">Pengurus</p>';
 
-            // ===== TAMPILKAN QR CODE =====
-            if (!empty($qr_base64)) {
-                $html .= '<div style="margin: 10px 0;">';
-                $html .= '<img src="' . $qr_base64 . '" style="width: 100px; height: 100px;" />';
-                $html .= '</div>';
-            } else {
-                // fallback kalau gagal generate QR
-                $html .= '<div style="height: 100px;"></div>';
-            }
+            $html .= '<div style="height: 60px;"></div>';
 
             // ===== NAMA & NIP =====
-            $html .= '<p style="margin: 5px 0; font-weight: bold;">' . $sekolah['kepala_sekolah'] . '</p>';
-            $html .= '<p style="margin: 5px 0; font-size: 9px;">NIP. ' . $sekolah['nip_kepsek'] . '</p>';
+            $html .= '<p style="margin: 5px 0; font-weight: bold;">Iffatul Hasanah, S.Pd.</p>';
+            $html .= '<p style="margin: 5px 0; font-size: 9px;">NIP. - </p>';
+
+            $html .= '</div>';
 
             $html .= '</td>';
             $html .= '</tr>';
             $html .= '</table>';
-
-            $html .= '</div>';
         }
 
         return $html;
@@ -218,3 +202,4 @@ if (!function_exists('generate_table_html')) {
         return $html;
     }
 }
+

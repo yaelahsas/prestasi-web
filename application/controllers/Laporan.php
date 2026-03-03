@@ -115,7 +115,7 @@ img {
 <body>';
 
         // Header
-        $html .= generate_pdf_header($pdf, 'LAPORAN JURNAL BULANAN');
+        $html .= generate_pdf_header($pdf, 'LAPORAN BULAN ' . $this->get_nama_bulan($bulan));
 
         // Kotak informasi laporan
         $html .= '
