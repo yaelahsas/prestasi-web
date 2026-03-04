@@ -35,10 +35,10 @@ class Api extends CI_Controller
         // For now, using a simple hardcoded key
         $valid_api_keys = ['whatsapp_bot_key_2024', 'prestasi_api_key'];
 
-        // if (!$api_key || !in_array($api_key, $valid_api_keys)) {
-        //     $this->_send_error_response('Unauthorized', 401);
-        //     return FALSE;
-        // }
+        if (!$api_key || !in_array($api_key, $valid_api_keys)) {
+            $this->_send_error_response('Unauthorized', 401);
+            return FALSE;
+        }
 
         return TRUE;
     }
@@ -223,6 +223,7 @@ class Api extends CI_Controller
             'materi'       => $materi,
             'jumlah_siswa' => null,
             'keterangan'   => isset($input['keterangan']) ? $input['keterangan'] : null,
+            'is_daring'    => isset($input['daring']) ? ($input['daring'] ? 1 : 0) : 0, // Default 0 jika tidak ada parameter daring
             'created_by'   => isset($input['created_by']) ? $input['created_by'] : 2,
             'created_at'   => date('Y-m-d H:i:s')
         ];

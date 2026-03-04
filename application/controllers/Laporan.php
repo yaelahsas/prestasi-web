@@ -777,7 +777,7 @@ img {
         $html .= '<div class="margin-top-20"></div>';
 
         // Prepare table data
-        $headers = ['No', 'Nama Guru', 'NIP', 'Total Jurnal', 'Total Daring', 'Total Offline'];
+        $headers = ['No', 'Nama Guru', 'NIP', 'Total Pertemuan', 'Total Daring', 'Total Offline'];
         $table_data = [];
         $no = 1;
 

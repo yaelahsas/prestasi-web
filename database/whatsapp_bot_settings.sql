@@ -3,7 +3,7 @@
 -- Deskripsi: Menyimpan konfigurasi ENV untuk WhatsApp Bot (Baileys)
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS `whatsapp_bot_settings` (
+CREATE TABLE IF NOT EXISTS `bimbel_whatsapp_bot_settings` (
     `id`            INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
     `setting_key`   VARCHAR(100)     NOT NULL,
     `setting_value` TEXT             DEFAULT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS `whatsapp_bot_settings` (
 -- Data default pengaturan bot
 -- ============================================================
 
-INSERT INTO `whatsapp_bot_settings` (`setting_key`, `setting_value`, `description`) VALUES
+INSERT INTO `bimbel_whatsapp_bot_settings` (`setting_key`, `setting_value`, `description`) VALUES
 ('BAILEYS_API_URL',             'http://localhost:3000',     'URL server Baileys API (Node.js)'),
 ('APP_PORT',                    '3000',                      'Port server Baileys berjalan'),
 ('MAX_RETRIES',                 '0',                         'Jumlah maksimal percobaan reconnect (-1 = unlimited, 0 = tidak reconnect)'),
