@@ -553,8 +553,52 @@
                     </div>
                 </div>
 
+                <!-- Jurnal Daring -->
+                <div class="stat-card bg-white rounded-2xl shadow-lg p-6 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 animate-slide-up border-l-4 border-blue-500" style="animation-delay: 0.3s">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600 font-medium flex items-center gap-2">
+                                <i class="fas fa-laptop text-blue-500"></i>
+                                Jurnal Daring
+                            </p>
+                            <h2 class="text-3xl font-bold text-gray-800 mt-2" id="jurnalDaring">
+                                 <?= $total_daring; ?>
+                            </h2>
+                            <div class="mt-2 flex items-center text-xs text-blue-600">
+                                <i class="fas fa-wifi mr-1"></i>
+                                <span>Pembelajaran online</span>
+                            </div>
+                        </div>
+                        <div class="w-16 h-16 rounded-full bg-gradient-to-br from-blue-100 to-blue-500 flex items-center justify-center shadow-lg">
+                            <i class="fas fa-laptop text-white text-2xl"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Jurnal Offline -->
+                <div class="stat-card bg-white rounded-2xl shadow-lg p-6 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 animate-slide-up border-l-4 border-green-500" style="animation-delay: 0.4s">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-600 font-medium flex items-center gap-2">
+                                <i class="fas fa-chalkboard text-green-500"></i>
+                                Jurnal Offline
+                            </p>
+                            <h2 class="text-3xl font-bold text-gray-800 mt-2" id="jurnalOffline">
+                                 <?= $total_offline; ?>
+                            </h2>
+                            <div class="mt-2 flex items-center text-xs text-green-600">
+                                <i class="fas fa-users mr-1"></i>
+                                <span>Pembelajaran tatap muka</span>
+                            </div>
+                        </div>
+                        <div class="w-16 h-16 rounded-full bg-gradient-to-br from-green-100 to-green-500 flex items-center justify-center shadow-lg">
+                            <i class="fas fa-chalkboard text-white text-2xl"></i>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Search Box -->
-                <div class="stat-card bg-white rounded-2xl shadow-lg p-6 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 animate-slide-up border-l-4 border-school-green" style="animation-delay: 0.3s">
+                <div class="stat-card bg-white rounded-2xl shadow-lg p-6 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 animate-slide-up border-l-4 border-school-green" style="animation-delay: 0.5s">
                     <div class="flex items-center justify-between">
                         <div class="w-full">
                             <p class="text-sm text-gray-600 font-medium flex items-center gap-2 mb-3">
@@ -575,7 +619,7 @@
             </div>
 
             <!-- ACTION BUTTONS -->
-            <div class="flex flex-wrap gap-3 mb-6 animate-slide-up" style="animation-delay: 0.4s">
+            <div class="flex flex-wrap gap-3 mb-6 animate-slide-up" style="animation-delay: 0.6s">
                 <button onclick="openModal()" class="btn btn-primary">
                     <i class="fas fa-plus"></i>
                     <span>Tambah Jurnal</span>
@@ -588,10 +632,22 @@
                     <i class="fas fa-filter"></i>
                     <span>Filter Tanggal</span>
                 </button>
+                <button onclick="filterByDaring(1)" class="btn" style="background: linear-gradient(to right, #3b82f6, #2563eb); color: white;">
+                    <i class="fas fa-laptop"></i>
+                    <span>Filter Daring</span>
+                </button>
+                <button onclick="filterByDaring(0)" class="btn" style="background: linear-gradient(to right, #10b981, #059669); color: white;">
+                    <i class="fas fa-chalkboard"></i>
+                    <span>Filter Offline</span>
+                </button>
+                <button onclick="resetFilter()" class="btn btn-secondary">
+                    <i class="fas fa-times"></i>
+                    <span>Reset Filter</span>
+                </button>
             </div>
 
             <!-- DATA TABLE -->
-            <div class="bg-white rounded-2xl shadow-lg overflow-hidden animate-slide-up" style="animation-delay: 0.5s">
+            <div class="bg-white rounded-2xl shadow-lg overflow-hidden animate-slide-up" style="animation-delay: 0.7s">
                 <div class="p-4 border-b border-gray-200">
                     <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
                         <i class="fas fa-table text-school-green"></i>
@@ -609,6 +665,7 @@
                                 <th>Mapel</th>
                                 <th>Materi</th>
                                 <th>Jumlah Siswa</th>
+                                <th>Status</th>
                                 <th>Foto Bukti</th>
                                 <th>Aksi</th>
                             </tr>
@@ -672,6 +729,15 @@
                             <label for="jumlah_siswa">Jumlah Siswa <span class="text-red-500">*</span></label>
                             <input type="number" id="jumlah_siswa" name="jumlah_siswa" class="form-control" min="1" required>
                             <div class="error-message" id="jumlah_siswa_error"></div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="is_daring">Status Pembelajaran <span class="text-red-500">*</span></label>
+                            <select id="is_daring" name="is_daring" class="form-control" required>
+                                <option value="0">Offline (Tatap Muka)</option>
+                                <option value="1">Daring (Online)</option>
+                            </select>
+                            <div class="error-message" id="is_daring_error"></div>
                         </div>
                         
                         <div class="form-group">

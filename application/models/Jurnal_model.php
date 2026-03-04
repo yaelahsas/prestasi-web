@@ -199,6 +199,45 @@ class Jurnal_model extends CI_Model {
     }
 
     /**
+     * Mendapatkan data jurnal berdasarkan status daring
+     * @param int $is_daring
+     * @return array
+     */
+    public function get_jurnal_by_daring_status($is_daring)
+    {
+        $this->db->select('j.*, g.nama_guru, g.nip, k.nama_kelas, m.nama_mapel, u.nama as nama_penginput');
+        $this->db->from('bimbel_jurnal j');
+        $this->db->join('bimbel_guru g', 'j.id_guru = g.id_guru');
+        $this->db->join('bimbel_kelas k', 'j.id_kelas = k.id_kelas');
+        $this->db->join('bimbel_mapel m', 'j.id_mapel = m.id_mapel');
+        $this->db->join('bimbel_users u', 'j.created_by = u.id_user');
+        $this->db->where('j.is_daring', $is_daring);
+        $this->db->order_by('j.tanggal', 'DESC');
+        $this->db->order_by('j.created_at', 'DESC');
+        return $this->db->get()->result();
+    }
+
+    /**
+     * Mendapatkan total jurnal daring
+     * @return int
+     */
+    public function get_total_jurnal_daring()
+    {
+        $this->db->where('is_daring', 1);
+        return $this->db->count_all_results('bimbel_jurnal');
+    }
+
+    /**
+     * Mendapatkan total jurnal offline
+     * @return int
+     */
+    public function get_total_jurnal_offline()
+    {
+        $this->db->where('is_daring', 0);
+        return $this->db->count_all_results('bimbel_jurnal');
+    }
+
+    /**
      * Upload foto bukti
      * @param string $field_name
      * @return string|null

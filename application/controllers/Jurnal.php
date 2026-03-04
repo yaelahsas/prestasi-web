@@ -27,6 +27,8 @@ class Jurnal extends CI_Controller {
         $data['total_jurnal'] = $this->Jurnal_model->get_total_jurnal();
         $data['total_hari'] = $this->Jurnal_model->get_total_jurnal_hari_ini();
         $data['total_bulan'] = $this->Jurnal_model->get_total_jurnal_bulan_ini();
+        $data['total_daring'] = $this->Jurnal_model->get_total_jurnal_daring();
+        $data['total_offline'] = $this->Jurnal_model->get_total_jurnal_offline();
         $this->load->view('jurnal/index', $data);
     }
 
@@ -48,6 +50,7 @@ class Jurnal extends CI_Controller {
             $row[] = $j->nama_mapel;
             $row[] = substr($j->materi, 0, 50) . (strlen($j->materi) > 50 ? '...' : '');
             $row[] = $j->jumlah_siswa;
+            $row[] = $j->is_daring ? '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">Daring</span>' : '<span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">Offline</span>';
             $row[] = $j->foto_bukti ? '<img src="' . base_url('assets/uploads/foto_kegiatan/' . $j->foto_bukti) . '" alt="Foto Bukti" style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px;" onclick="viewImage(\'' . $j->foto_bukti . '\')" style="cursor: pointer;">' : '<span class="text-gray-400">Tidak ada</span>';
             $row[] = '<div class="flex gap-1">
                         <button onclick="editJurnal('.$j->id_jurnal.')" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
@@ -140,6 +143,7 @@ class Jurnal extends CI_Controller {
         $this->form_validation->set_rules('materi', 'Materi', 'required|trim|max_length[500]');
         $this->form_validation->set_rules('jumlah_siswa', 'Jumlah Siswa', 'required|integer|greater_than[0]');
         $this->form_validation->set_rules('keterangan', 'Keterangan', 'trim|max_length[500]');
+        $this->form_validation->set_rules('is_daring', 'Status Daring', 'required|in_list[0,1]');
         
         if ($this->form_validation->run() == FALSE) {
             $errors = [
@@ -149,7 +153,8 @@ class Jurnal extends CI_Controller {
                 'id_mapel' => form_error('id_mapel'),
                 'materi' => form_error('materi'),
                 'jumlah_siswa' => form_error('jumlah_siswa'),
-                'keterangan' => form_error('keterangan')
+                'keterangan' => form_error('keterangan'),
+                'is_daring' => form_error('is_daring')
             ];
             
             echo json_encode([
@@ -169,6 +174,7 @@ class Jurnal extends CI_Controller {
             'materi' => $this->input->post('materi'),
             'jumlah_siswa' => $this->input->post('jumlah_siswa'),
             'keterangan' => $this->input->post('keterangan') ? $this->input->post('keterangan') : null,
+            'is_daring' => $this->input->post('is_daring') ? $this->input->post('is_daring') : 0,
             'created_by' => $this->session->userdata('id_user')
         ];
         
@@ -244,6 +250,21 @@ class Jurnal extends CI_Controller {
         }
         
         $jurnal = $this->Jurnal_model->get_jurnal_by_tanggal($tanggal_awal, $tanggal_akhir);
+        
+        echo json_encode([
+            'status' => 'success',
+            'data' => $jurnal
+        ]);
+    }
+
+    /**
+     * Get data jurnal berdasarkan status daring
+     * @param int $is_daring
+     * @return void
+     */
+    public function get_jurnal_by_daring_status($is_daring)
+    {
+        $jurnal = $this->Jurnal_model->get_jurnal_by_daring_status($is_daring);
         
         echo json_encode([
             'status' => 'success',

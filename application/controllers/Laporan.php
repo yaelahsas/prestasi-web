@@ -114,6 +114,9 @@ img {
 </head>
 <body>';
 
+        // Add copyright notice to appear on every page
+        $html .= generate_pdf_copyright($this->session->userdata('nama'), '', 'v1.0');
+
         // Header
         $html .= generate_pdf_header($pdf, 'LAPORAN BULAN ' . $this->get_nama_bulan($bulan));
 
@@ -144,12 +147,13 @@ img {
     </table>
 </div>';
 
-        // Tabel utama laporan (tanpa kolom siswa)
-        $headers = ['No', 'Tanggal', 'Kelas', 'Mapel', 'Guru', 'Materi', 'Penginput'];
+        // Tabel utama laporan (dengan kolom status daring)
+        $headers = ['No', 'Tanggal', 'Kelas', 'Mapel', 'Guru', 'Materi', 'Status', 'Penginput'];
         $table_data = [];
         $no = 1;
 
         foreach ($data_jurnal as $jurnal) {
+            $status = $jurnal->is_daring == 1 ? 'Daring' : 'Offline';
             $table_data[] = [
                 $no++,
                 date('d/m/Y', strtotime($jurnal->tanggal)),
@@ -157,12 +161,13 @@ img {
                 $jurnal->nama_mapel,
                 $jurnal->nama_guru,
                 $jurnal->materi,
+                $status,
                 $jurnal->nama_penginput
             ];
         }
 
         // Panggil generate table dengan class khusus
-        $html .= generate_table_html($headers, $table_data, [10, 20, 25, 25, 30, 60, 25], 'main-table');
+        $html .= generate_table_html($headers, $table_data, [10, 20, 25, 25, 30, 60, 15, 25], 'main-table');
 
         // Footer + QR Code
         $html .= generate_pdf_footer($pdf, 'Srono', $tanggal_cetak);
@@ -173,42 +178,21 @@ img {
         $html .= '<h3 class="text-center">LAMPIRAN BUKTI JURNAL</h3>';
         $html .= '<p class="text-center">Periode: <b>' . $this->get_nama_bulan($bulan) . ' ' . $tahun . '</b></p>';
 
-        $ada_foto = false;
-
+        // Collect all images with photos
+        $images_with_photos = [];
         foreach ($data_jurnal as $jurnal) {
-
             if (!empty($jurnal->foto_bukti)) {
-
                 $path = FCPATH . 'assets/uploads/foto_kegiatan/' . $jurnal->foto_bukti;
-
                 if (file_exists($path)) {
-
-                    $ada_foto = true;
-
-                    $type = pathinfo($path, PATHINFO_EXTENSION);
-                    $data = file_get_contents($path);
-                    $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
-
-                    $html .= '<div class="lampiran">';
-
-                    $html .= '<table style="width:100%; border:none !important;">';
-                    $html .= '<tr><td style="border:none !important;width:25%;"><b>Tanggal</b></td><td style="border:none !important;">: ' . date('d/m/Y', strtotime($jurnal->tanggal)) . '</td></tr>';
-                    $html .= '<tr><td style="border:none !important;"><b>Guru</b></td><td style="border:none !important;">: ' . $jurnal->nama_guru . '</td></tr>';
-                    $html .= '<tr><td style="border:none !important;"><b>Kelas</b></td><td style="border:none !important;">: ' . $jurnal->nama_kelas . '</td></tr>';
-                    $html .= '<tr><td style="border:none !important;"><b>Mapel</b></td><td style="border:none !important;">: ' . $jurnal->nama_mapel . '</td></tr>';
-                    $html .= '<tr><td style="border:none !important;"><b>Materi</b></td><td style="border:none !important;">: ' . $jurnal->materi . '</td></tr>';
-                    $html .= '</table>';
-
-                    $html .= '<div style="margin-top:10px;">';
-                    $html .= '<img src="' . $base64 . '" style="max-width: 450px; max-height: 650px;" />';
-                    $html .= '</div>';
-
-                    $html .= '</div>';
+                    $images_with_photos[] = $jurnal;
                 }
             }
         }
 
-        if (!$ada_foto) {
+        if (!empty($images_with_photos)) {
+            // Generate 4-image grid layout
+            $html .= generate_image_grid_html($images_with_photos);
+        } else {
             $html .= '<p class="text-center">Tidak ada lampiran foto pada periode ini.</p>';
         }
 
@@ -311,6 +295,9 @@ img {
 </head>
 <body>';
 
+        // Add copyright notice to appear on every page
+        $html .= generate_pdf_copyright();
+
         // Header sekolah
         $html .= generate_pdf_header($pdf, 'LAPORAN JURNAL GURU');
 
@@ -352,23 +339,25 @@ img {
 </div>';
 
         // Tabel utama laporan
-        $headers = ['No', 'Tanggal', 'Kelas', 'Mapel', 'Materi', 'Penginput'];
+        $headers = ['No', 'Tanggal', 'Kelas', 'Mapel', 'Materi', 'Status', 'Penginput'];
         $table_data = [];
         $no = 1;
 
         foreach ($data_jurnal as $jurnal) {
+            $status = $jurnal->is_daring == 1 ? 'Daring' : 'Offline';
             $table_data[] = [
                 $no++,
                 date('d/m/Y', strtotime($jurnal->tanggal)),
                 $jurnal->nama_kelas,
                 $jurnal->nama_mapel,
                 $jurnal->materi,
+                $status,
                 $jurnal->nama_penginput
             ];
         }
 
         // Pakai class main-table biar border hanya untuk tabel utama
-        $html .= generate_table_html($headers, $table_data, [10, 20, 25, 25, 60, 30], 'main-table');
+        $html .= generate_table_html($headers, $table_data, [10, 20, 25, 25, 60, 15, 30], 'main-table');
 
         // Footer + QR Code
         $html .= generate_pdf_footer($pdf, 'Srono', $tanggal_cetak);
@@ -380,42 +369,21 @@ img {
         $html .= '<p class="text-center">Guru: <b>' . $guru_info->nama_guru . '</b></p>';
         $html .= '<p class="text-center">Periode: ' . $this->get_nama_bulan($bulan) . ' ' . $tahun . '</p>';
 
-        $ada_foto = false;
-
+        // Collect all images with photos
+        $images_with_photos = [];
         foreach ($data_jurnal as $jurnal) {
-
             if (!empty($jurnal->foto_bukti)) {
-
                 $path = FCPATH . 'assets/uploads/foto_kegiatan/' . $jurnal->foto_bukti;
-
                 if (file_exists($path)) {
-
-                    $ada_foto = true;
-
-                    $type = pathinfo($path, PATHINFO_EXTENSION);
-                    $data = file_get_contents($path);
-                    $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
-
-                    $html .= '<div class="lampiran">';
-
-                    // Info foto tanpa border
-                    $html .= '<table style="width:100%; border:none !important;">';
-                    $html .= '<tr><td style="border:none !important;width:25%;"><b>Tanggal</b></td><td style="border:none !important;">: ' . date('d/m/Y', strtotime($jurnal->tanggal)) . '</td></tr>';
-                    $html .= '<tr><td style="border:none !important;"><b>Kelas</b></td><td style="border:none !important;">: ' . $jurnal->nama_kelas . '</td></tr>';
-                    $html .= '<tr><td style="border:none !important;"><b>Mapel</b></td><td style="border:none !important;">: ' . $jurnal->nama_mapel . '</td></tr>';
-                    $html .= '<tr><td style="border:none !important;"><b>Materi</b></td><td style="border:none !important;">: ' . $jurnal->materi . '</td></tr>';
-                    $html .= '</table>';
-
-                    $html .= '<div style="margin-top:10px;">';
-                    $html .= '<img src="' . $base64 . '" style="max-width: 450px; max-height: 650px;" />';
-                    $html .= '</div>';
-
-                    $html .= '</div>';
+                    $images_with_photos[] = $jurnal;
                 }
             }
         }
 
-        if (!$ada_foto) {
+        if (!empty($images_with_photos)) {
+            // Generate 4-image grid layout
+            $html .= generate_image_grid_html($images_with_photos);
+        } else {
             $html .= '<p class="text-center">Tidak ada lampiran foto pada periode ini.</p>';
         }
 
@@ -507,6 +475,9 @@ img {
 </head>
 <body>';
 
+        // Add copyright notice to appear on every page
+        $html .= generate_pdf_copyright();
+
         // Generate header with sekolah data
         $html .= generate_pdf_header($pdf, 'LAPORAN JURNAL KELAS');
 
@@ -517,24 +488,26 @@ img {
         $html .= '<div class="margin-top-20"></div>';
 
         // Prepare table data
-        $headers = ['No', 'Tanggal', 'Guru', 'Mapel', 'Materi', 'Siswa', 'Penginput'];
+        $headers = ['No', 'Tanggal', 'Guru', 'Mapel', 'Materi', 'Status', 'Siswa', 'Penginput'];
         $table_data = [];
         $no = 1;
 
         foreach ($data_jurnal as $jurnal) {
+            $status = $jurnal->is_daring == 1 ? 'Daring' : 'Offline';
             $table_data[] = [
                 $no++,
                 date('d/m/Y', strtotime($jurnal->tanggal)),
                 $jurnal->nama_guru,
                 $jurnal->nama_mapel,
                 substr($jurnal->materi, 0, 30),
+                $status,
                 $jurnal->jumlah_siswa,
                 $jurnal->nama_penginput
             ];
         }
 
         // Generate table HTML
-        $html .= generate_table_html($headers, $table_data, [10, 20, 30, 25, 50, 15, 25]);
+        $html .= generate_table_html($headers, $table_data, [10, 20, 30, 25, 50, 15, 15, 25]);
 
         // Add summary
         $html .= '<p class="bold margin-top-20">Total Jurnal: ' . count($data_jurnal) . '</p>';
@@ -548,24 +521,22 @@ img {
         $html .= '<h3 class="text-center">LAMPIRAN BUKTI JURNAL</h3>';
         $html .= '<p class="text-center">Periode: ' . $this->get_nama_bulan($bulan) . ' ' . $tahun . '</p>';
 
+        // Collect all images with photos
+        $images_with_photos = [];
         foreach ($data_jurnal as $jurnal) {
             if (!empty($jurnal->foto_bukti)) {
                 $path = FCPATH . 'assets/uploads/foto_kegiatan/' . $jurnal->foto_bukti;
-
                 if (file_exists($path)) {
-                    $type = pathinfo($path, PATHINFO_EXTENSION);
-                    $data = file_get_contents($path);
-                    $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
-
-                    $html .= '<div style="margin-top:20px; page-break-inside: avoid;">';
-                    $html .= '<p><b>Tanggal:</b> ' . date('d/m/Y', strtotime($jurnal->tanggal)) . '</p>';
-                    $html .= '<p><b>Guru:</b> ' . $jurnal->nama_guru . '</p>';
-                    $html .= '<p><b>Kelas:</b> ' . $jurnal->nama_kelas . '</p>';
-                    $html .= '<p><b>Mapel:</b> ' . $jurnal->nama_mapel . '</p>';
-                    $html .= '<img src="' . $base64 . '" style="max-width: 500px; max-height: 700px;" />';
-                    $html .= '</div>';
+                    $images_with_photos[] = $jurnal;
                 }
             }
+        }
+
+        if (!empty($images_with_photos)) {
+            // Generate 4-image grid layout
+            $html .= generate_image_grid_html($images_with_photos);
+        } else {
+            $html .= '<p class="text-center">Tidak ada lampiran foto pada periode ini.</p>';
         }
 
         $html .= '</body></html>';
@@ -652,6 +623,9 @@ img {
 </head>
 <body>';
 
+        // Add copyright notice to appear on every page
+        $html .= generate_pdf_copyright();
+
         // Generate header with sekolah data
         $html .= generate_pdf_header($pdf, 'LAPORAN JURNAL MATA PELAJARAN');
 
@@ -661,24 +635,26 @@ img {
         $html .= '<div class="margin-top-20"></div>';
 
         // Prepare table data
-        $headers = ['No', 'Tanggal', 'Guru', 'Kelas', 'Materi', 'Siswa', 'Penginput'];
+        $headers = ['No', 'Tanggal', 'Guru', 'Kelas', 'Materi', 'Status', 'Siswa', 'Penginput'];
         $table_data = [];
         $no = 1;
 
         foreach ($data_jurnal as $jurnal) {
+            $status = $jurnal->is_daring == 1 ? 'Daring' : 'Offline';
             $table_data[] = [
                 $no++,
                 date('d/m/Y', strtotime($jurnal->tanggal)),
                 $jurnal->nama_guru,
                 $jurnal->nama_kelas,
                 substr($jurnal->materi, 0, 30),
+                $status,
                 $jurnal->jumlah_siswa,
                 $jurnal->nama_penginput
             ];
         }
 
         // Generate table HTML
-        $html .= generate_table_html($headers, $table_data, [10, 20, 30, 25, 50, 15, 25]);
+        $html .= generate_table_html($headers, $table_data, [10, 20, 30, 25, 50, 15, 15, 25]);
 
         // Add summary
         $html .= '<p class="bold margin-top-20">Total Jurnal: ' . count($data_jurnal) . '</p>';
@@ -692,24 +668,22 @@ img {
         $html .= '<h3 class="text-center">LAMPIRAN BUKTI JURNAL</h3>';
         $html .= '<p class="text-center">Periode: ' . $this->get_nama_bulan($bulan) . ' ' . $tahun . '</p>';
 
+        // Collect all images with photos
+        $images_with_photos = [];
         foreach ($data_jurnal as $jurnal) {
             if (!empty($jurnal->foto_bukti)) {
                 $path = FCPATH . 'assets/uploads/foto_kegiatan/' . $jurnal->foto_bukti;
-
                 if (file_exists($path)) {
-                    $type = pathinfo($path, PATHINFO_EXTENSION);
-                    $data = file_get_contents($path);
-                    $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
-
-                    $html .= '<div style="margin-top:20px; page-break-inside: avoid;">';
-                    $html .= '<p><b>Tanggal:</b> ' . date('d/m/Y', strtotime($jurnal->tanggal)) . '</p>';
-                    $html .= '<p><b>Guru:</b> ' . $jurnal->nama_guru . '</p>';
-                    $html .= '<p><b>Kelas:</b> ' . $jurnal->nama_kelas . '</p>';
-                    $html .= '<p><b>Mapel:</b> ' . $jurnal->nama_mapel . '</p>';
-                    $html .= '<img src="' . $base64 . '" style="max-width: 500px; max-height: 700px;" />';
-                    $html .= '</div>';
+                    $images_with_photos[] = $jurnal;
                 }
             }
+        }
+
+        if (!empty($images_with_photos)) {
+            // Generate 4-image grid layout
+            $html .= generate_image_grid_html($images_with_photos);
+        } else {
+            $html .= '<p class="text-center">Tidak ada lampiran foto pada periode ini.</p>';
         }
 
         $html .= '</body></html>';
@@ -792,6 +766,9 @@ img {
 </head>
 <body>';
 
+        // Add copyright notice to appear on every page
+        $html .= generate_pdf_copyright();
+
         // Generate header with sekolah data
         $html .= generate_pdf_header($pdf, 'REKAP KEHADIRAN GURU');
 
@@ -800,22 +777,37 @@ img {
         $html .= '<div class="margin-top-20"></div>';
 
         // Prepare table data
-        $headers = ['No', 'Nama Guru', 'NIP', 'Total Jurnal', 'Total Siswa'];
+        $headers = ['No', 'Nama Guru', 'NIP', 'Total Jurnal', 'Total Daring', 'Total Offline'];
         $table_data = [];
         $no = 1;
 
         foreach ($data_rekap as $rekap) {
+            // Get detailed data for this guru to count daring/offline
+            $daring_count = $this->Laporan_model->get_jurnal_by_guru($rekap->id_guru, $bulan, $tahun);
+            $total_daring = 0;
+            $total_offline = 0;
+            
+            foreach ($daring_count as $jurnal) {
+                if ($jurnal->is_daring == 1) {
+                    $total_daring++;
+                } else {
+                    $total_offline++;
+                }
+            }
+            
             $table_data[] = [
                 $no++,
                 $rekap->nama_guru,
                 $rekap->nip,
                 $rekap->total_jurnal,
-                $rekap->total_siswa
+                $total_daring,
+                $total_offline,
+               
             ];
         }
 
         // Generate table HTML
-        $html .= generate_table_html($headers, $table_data, [10, 50, 30, 25, 25]);
+        $html .= generate_table_html($headers, $table_data, [10, 40, 25, 20, 20, 20]);
 
         // Generate footer with signature
         $html .= generate_pdf_footer($pdf, 'Srono', format_tanggal_indo(date('Y-m-d')));

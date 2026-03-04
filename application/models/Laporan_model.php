@@ -28,8 +28,9 @@ class Laporan_model extends CI_Model {
     // Get jurnal by guru dan periode
     public function get_jurnal_by_guru($id_guru, $bulan = null, $tahun = null)
     {
-        $this->db->select('j.*, k.nama_kelas, m.nama_mapel, u.nama as nama_penginput');
+        $this->db->select('j.*, g.nama_guru, k.nama_kelas, m.nama_mapel, u.nama as nama_penginput');
         $this->db->from('bimbel_jurnal j');
+        $this->db->join('bimbel_guru g', 'j.id_guru = g.id_guru');
         $this->db->join('bimbel_kelas k', 'j.id_kelas = k.id_kelas');
         $this->db->join('bimbel_mapel m', 'j.id_mapel = m.id_mapel');
         $this->db->join('bimbel_users u', 'j.created_by = u.id_user');
