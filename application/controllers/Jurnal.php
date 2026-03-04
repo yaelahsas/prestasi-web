@@ -38,7 +38,22 @@ class Jurnal extends CI_Controller {
      */
     public function get_jurnal_data()
     {
-        $jurnal = $this->Jurnal_model->get_all_jurnal();
+        // Get filter parameters - only date and status filters
+        $tanggal_awal = $this->input->get('tanggal_awal');
+        $tanggal_akhir = $this->input->get('tanggal_akhir');
+        $is_daring = $this->input->get('is_daring');
+        
+        // Convert is_daring to integer if it's not null or empty
+        if ($is_daring !== null && $is_daring !== '') {
+            $is_daring = (int)$is_daring;
+        }
+        
+        // Get jurnal data with simplified filters
+        $jurnal = $this->Jurnal_model->get_jurnal_simplified_filtered(
+            $tanggal_awal,
+            $tanggal_akhir,
+            $is_daring
+        );
         
         $data = [];
         foreach ($jurnal as $j) {
@@ -67,7 +82,12 @@ class Jurnal extends CI_Controller {
         }
 
         $output = [
-            "data" => $data
+            "data" => $data,
+            "filters" => [
+                "tanggal_awal" => $tanggal_awal,
+                "tanggal_akhir" => $tanggal_akhir,
+                "is_daring" => $is_daring
+            ]
         ];
 
         echo json_encode($output);
@@ -174,7 +194,7 @@ class Jurnal extends CI_Controller {
             'materi' => $this->input->post('materi'),
             'jumlah_siswa' => $this->input->post('jumlah_siswa'),
             'keterangan' => $this->input->post('keterangan') ? $this->input->post('keterangan') : null,
-            'is_daring' => $this->input->post('is_daring') ? $this->input->post('is_daring') : 0,
+            'is_daring' => (int)$this->input->post('is_daring'),
             'created_by' => $this->session->userdata('id_user')
         ];
         

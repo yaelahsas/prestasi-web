@@ -234,52 +234,72 @@ if (!function_exists('optimize_image_for_pdf')) {
             $new_width = (int)($width * $ratio);
             $new_height = (int)($height * $ratio);
 
-            // Create image resource based on mime type
-            switch ($mime_type) {
-                case 'image/jpeg':
-                    $source = imagecreatefromjpeg($image_path);
-                    break;
-                case 'image/png':
-                    $source = imagecreatefrompng($image_path);
-                    break;
-                case 'image/gif':
-                    $source = imagecreatefromgif($image_path);
-                    break;
-                default:
-                    // If unsupported type, just return base64 of original
-                    $data = file_get_contents($image_path);
-                    return 'data:image/jpeg;base64,' . base64_encode($data);
+            // Check if GD functions are available
+            if (function_exists('imagecreatefromjpeg') && function_exists('imagecreatefrompng') && function_exists('imagecreatefromgif')) {
+                // Create image resource based on mime type
+                switch ($mime_type) {
+                    case 'image/jpeg':
+                        $source = imagecreatefromjpeg($image_path);
+                        break;
+                    case 'image/png':
+                        $source = imagecreatefrompng($image_path);
+                        break;
+                    case 'image/gif':
+                        $source = imagecreatefromgif($image_path);
+                        break;
+                    default:
+                        // If unsupported type, just return base64 of original
+                        $data = file_get_contents($image_path);
+                        return 'data:image/jpeg;base64,' . base64_encode($data);
+                }
+
+                if (!$source) {
+                    return '';
+                }
+
+                // Create new image
+                $new_image = imagecreatetruecolor($new_width, $new_height);
+
+                // Handle transparency for PNG
+                if ($mime_type == 'image/png') {
+                    imagealphablending($new_image, false);
+                    imagesavealpha($new_image, true);
+                    $transparent = imagecolorallocatealpha($new_image, 255, 255, 255, 127);
+                    imagefilledrectangle($new_image, 0, 0, $new_width, $new_height, $transparent);
+                }
+
+                // Resize image
+                imagecopyresampled($new_image, $source, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
+
+                // Capture output
+                ob_start();
+                imagejpeg($new_image, null, $quality);
+                $image_data = ob_get_contents();
+                ob_end_clean();
+
+                // Clean up
+                imagedestroy($source);
+                imagedestroy($new_image);
+
+                return 'data:image/jpeg;base64,' . base64_encode($image_data);
+            } else {
+                // Fallback when GD functions are not available
+                // Just return the original image as base64
+                $data = file_get_contents($image_path);
+                
+                // Determine appropriate data URI based on mime type
+                switch ($mime_type) {
+                    case 'image/jpeg':
+                        return 'data:image/jpeg;base64,' . base64_encode($data);
+                    case 'image/png':
+                        return 'data:image/png;base64,' . base64_encode($data);
+                    case 'image/gif':
+                        return 'data:image/gif;base64,' . base64_encode($data);
+                    default:
+                        // Default to JPEG for unknown types
+                        return 'data:image/jpeg;base64,' . base64_encode($data);
+                }
             }
-
-            if (!$source) {
-                return '';
-            }
-
-            // Create new image
-            $new_image = imagecreatetruecolor($new_width, $new_height);
-
-            // Handle transparency for PNG
-            if ($mime_type == 'image/png') {
-                imagealphablending($new_image, false);
-                imagesavealpha($new_image, true);
-                $transparent = imagecolorallocatealpha($new_image, 255, 255, 255, 127);
-                imagefilledrectangle($new_image, 0, 0, $new_width, $new_height, $transparent);
-            }
-
-            // Resize image
-            imagecopyresampled($new_image, $source, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
-
-            // Capture output
-            ob_start();
-            imagejpeg($new_image, null, $quality);
-            $image_data = ob_get_contents();
-            ob_end_clean();
-
-            // Clean up
-            imagedestroy($source);
-            imagedestroy($new_image);
-
-            return 'data:image/jpeg;base64,' . base64_encode($image_data);
         } catch (Exception $e) {
             // Fallback to original image if optimization fails
             $data = file_get_contents($image_path);

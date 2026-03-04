@@ -1,11 +1,36 @@
+// Global variables for filter state - simplified to only date and status
+let currentFilters = {
+    tanggal_awal: '',
+    tanggal_akhir: '',
+    is_daring: null
+};
+
 $(document).ready(function() {
+    
+    // Load saved filters from localStorage
+    const savedFilters = localStorage.getItem('jurnalFilters');
+    if (savedFilters) {
+        currentFilters = JSON.parse(savedFilters);
+        // Apply saved filters to form
+        if (currentFilters.tanggal_awal) $('#tanggal_awal').val(currentFilters.tanggal_awal);
+        if (currentFilters.tanggal_akhir) $('#tanggal_akhir').val(currentFilters.tanggal_akhir);
+        // Convert is_daring to integer if it's a string
+        if (currentFilters.is_daring !== null && currentFilters.is_daring !== '') {
+            currentFilters.is_daring = parseInt(currentFilters.is_daring);
+        }
+    }
+    
     // Inisialisasi DataTable
     let table = $('#jurnalTable').DataTable({
         "processing": true,
         "serverSide": false,
         "ajax": {
-            "url": base_url + "jurnal/get_data",
+            "url": base_url + "jurnal/get_jurnal_data",
             "type": "GET",
+            "data": function(d) {
+                // Add current filters to AJAX request
+                return $.extend({}, d, currentFilters);
+            },
             "dataSrc": "data"
         },
         "columns": [
@@ -25,7 +50,11 @@ $(document).ready(function() {
             "url": "//cdn.datatables.net/plug-ins/1.13.4/i18n/id.json"
         },
         "pageLength": 10,
-        "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "Semua"]]
+        "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "Semua"]],
+        "initComplete": function() {
+            // Show active filters indicator
+            updateFilterIndicator();
+        }
     });
 
     // Load data guru, kelas, dan mapel untuk dropdown
@@ -193,7 +222,7 @@ function saveJurnal() {
     let formData = new FormData($('#jurnalForm')[0]);
     
     $.ajax({
-        url: base_url + 'jurnal/save',
+        url: base_url + 'jurnal/save_jurnal',
         type: 'POST',
         data: formData,
         dataType: 'json',
@@ -212,7 +241,8 @@ function saveJurnal() {
                 });
                 
                 closeModal();
-                refreshTable();
+                // Apply filters instead of refreshTable to maintain filter state
+                applyFiltersToTable();
                 updateStats();
             } else {
                 // Show validation errors
@@ -244,7 +274,7 @@ function saveJurnal() {
 // Fungsi untuk edit jurnal
 function editJurnal(id) {
     $.ajax({
-        url: base_url + 'jurnal/get_by_id/' + id,
+        url: base_url + 'jurnal/get_jurnal_by_id/' + id,
         type: 'GET',
         dataType: 'json',
         success: function(response) {
@@ -295,7 +325,7 @@ function deleteJurnal(id) {
     }).then((result) => {
         if (result.isConfirmed) {
             $.ajax({
-                url: base_url + 'jurnal/delete/' + id,
+                url: base_url + 'jurnal/delete_jurnal/' + id,
                 type: 'GET',
                 dataType: 'json',
                 success: function(response) {
@@ -308,7 +338,8 @@ function deleteJurnal(id) {
                             showConfirmButton: false
                         });
                         
-                        refreshTable();
+                        // Apply filters instead of refreshTable to maintain filter state
+                        applyFiltersToTable();
                         updateStats();
                     } else {
                         Swal.fire({
@@ -333,7 +364,7 @@ function deleteJurnal(id) {
 // Fungsi untuk view detail jurnal
 function viewJurnal(id) {
     $.ajax({
-        url: base_url + 'jurnal/get_by_id/' + id,
+        url: base_url + 'jurnal/get_jurnal_by_id/' + id,
         type: 'GET',
         dataType: 'json',
         success: function(response) {
@@ -438,6 +469,7 @@ function closeFilterModal() {
     $('#filterModal').removeClass('show');
 }
 
+
 // Fungsi untuk apply filter
 function applyFilter() {
     let tanggalAwal = $('#tanggal_awal').val();
@@ -452,77 +484,17 @@ function applyFilter() {
         return;
     }
     
-    $.ajax({
-        url: base_url + 'jurnal/filter_by_tanggal',
-        type: 'GET',
-        data: {
-            tanggal_awal: tanggalAwal,
-            tanggal_akhir: tanggalAkhir
-        },
-        dataType: 'json',
-        success: function(response) {
-            if (response.status === 'success') {
-                // Clear current table data
-                $('#jurnalTable').DataTable().clear();
-                
-                // Add new data
-                let data = [];
-                $.each(response.data, function(index, jurnal) {
-                    let fotoHtml = jurnal.foto_bukti ? 
-                        '<img src="' + base_url + 'assets/uploads/foto_kegiatan/' + jurnal.foto_bukti + '" alt="Foto Bukti" style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="viewImage(\'' + jurnal.foto_bukti + '\')">' : 
-                        '<span class="text-gray-400">Tidak ada</span>';
-                    
-                    let actionButtons = '<div class="flex gap-1">' +
-                                       '<button onclick="editJurnal(' + jurnal.id_jurnal + ')" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">' +
-                                       '<i class="fas fa-edit"></i>' +
-                                       '</button>' +
-                                       '<button onclick="deleteJurnal(' + jurnal.id_jurnal + ')" class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors">' +
-                                       '<i class="fas fa-trash"></i>' +
-                                       '</button>' +
-                                       '<button onclick="viewJurnal(' + jurnal.id_jurnal + ')" class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors">' +
-                                       '<i class="fas fa-eye"></i>' +
-                                       '</button>' +
-                                       '</div>';
-                    
-                    data.push([
-                        jurnal.id_jurnal,
-                        jurnal.tanggal,
-                        jurnal.nama_guru,
-                        jurnal.nama_kelas,
-                        jurnal.nama_mapel,
-                        jurnal.materi.length > 50 ? jurnal.materi.substring(0, 50) + '...' : jurnal.materi,
-                        jurnal.jumlah_siswa,
-                        jurnal.is_daring ? '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">Daring</span>' : '<span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">Offline</span>',
-                        fotoHtml,
-                        actionButtons
-                    ]);
-                });
-                
-                $('#jurnalTable').DataTable().rows.add(data).draw();
-                closeFilterModal();
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Berhasil',
-                    text: 'Data berhasil difilter',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: response.message
-                });
-            }
-        },
-        error: function() {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Terjadi kesalahan saat memfilter data'
-            });
-        }
+    // Update filters and apply
+    updateFilters();
+    applyFiltersToTable();
+    closeFilterModal();
+    
+    Swal.fire({
+        icon: 'success',
+        title: 'Berhasil',
+        text: 'Filter berhasil diterapkan',
+        timer: 1500,
+        showConfirmButton: false
     });
 }
 
@@ -542,81 +514,59 @@ function refreshTable() {
     $('#jurnalTable').DataTable().ajax.reload();
 }
 
-// Fungsi untuk search jurnal
-function searchJurnal() {
-    let keyword = $('#searchInput').val();
+// Fungsi untuk menyimpan filter ke localStorage
+function saveFilters() {
+    console.log('Saving filters:', currentFilters);
+    localStorage.setItem('jurnalFilters', JSON.stringify(currentFilters));
+}
+
+// Fungsi untuk memperbarui filter
+function updateFilters() {
+    currentFilters.tanggal_awal = $('#tanggal_awal').val();
+    currentFilters.tanggal_akhir = $('#tanggal_akhir').val();
+    // Don't update is_daring from dropdown since it's set by filterByDaring() function
+    console.log('Updated filters:', currentFilters);
+    saveFilters();
+}
+
+// Fungsi untuk menerapkan filter ke tabel
+function applyFiltersToTable() {
+    updateFilters();
+    $('#jurnalTable').DataTable().ajax.reload();
+    updateFilterIndicator();
+}
+
+// Fungsi untuk menampilkan indikator filter aktif
+function updateFilterIndicator() {
+    let hasActiveFilter = false;
+    let activeFilters = [];
     
-    if (keyword.trim() === '') {
-        refreshTable();
-        return;
+    if (currentFilters.tanggal_awal && currentFilters.tanggal_akhir) {
+        hasActiveFilter = true;
+        activeFilters.push('Tanggal');
+    }
+    if (currentFilters.is_daring !== '' && currentFilters.is_daring !== null) {
+        hasActiveFilter = true;
+        activeFilters.push(currentFilters.is_daring === 1 ? 'Daring' : 'Offline');
     }
     
-    $.ajax({
-        url: base_url + 'jurnal/search',
-        type: 'GET',
-        data: { keyword: keyword },
-        dataType: 'json',
-        success: function(response) {
-            if (response.status === 'success') {
-                // Clear current table data
-                $('#jurnalTable').DataTable().clear();
-                
-                // Add new data
-                let data = [];
-                $.each(response.data, function(index, jurnal) {
-                    let fotoHtml = jurnal.foto_bukti ? 
-                        '<img src="' + base_url + 'assets/uploads/foto_kegiatan/' + jurnal.foto_bukti + '" alt="Foto Bukti" style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="viewImage(\'' + jurnal.foto_bukti + '\')">' : 
-                        '<span class="text-gray-400">Tidak ada</span>';
-                    
-                    let actionButtons = '<div class="flex gap-1">' +
-                                       '<button onclick="editJurnal(' + jurnal.id_jurnal + ')" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">' +
-                                       '<i class="fas fa-edit"></i>' +
-                                       '</button>' +
-                                       '<button onclick="deleteJurnal(' + jurnal.id_jurnal + ')" class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors">' +
-                                       '<i class="fas fa-trash"></i>' +
-                                       '</button>' +
-                                       '<button onclick="viewJurnal(' + jurnal.id_jurnal + ')" class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors">' +
-                                       '<i class="fas fa-eye"></i>' +
-                                       '</button>' +
-                                       '</div>';
-                    
-                    data.push([
-                        jurnal.id_jurnal,
-                        jurnal.tanggal,
-                        jurnal.nama_guru,
-                        jurnal.nama_kelas,
-                        jurnal.nama_mapel,
-                        jurnal.materi.length > 50 ? jurnal.materi.substring(0, 50) + '...' : jurnal.materi,
-                        jurnal.jumlah_siswa,
-                        jurnal.is_daring ? '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">Daring</span>' : '<span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">Offline</span>',
-                        fotoHtml,
-                        actionButtons
-                    ]);
-                });
-                
-                $('#jurnalTable').DataTable().rows.add(data).draw();
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Gagal melakukan pencarian'
-                });
-            }
-        },
-        error: function() {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Terjadi kesalahan saat melakukan pencarian'
-            });
-        }
-    });
+    // Remove existing indicator
+    $('.filter-indicator').remove();
+    
+    if (hasActiveFilter) {
+        let indicatorHtml = '<div class="filter-indicator bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium ml-2">' +
+                           '<i class="fas fa-filter mr-1"></i>' +
+                           'Filter Aktif: ' + activeFilters.join(', ') +
+                           '</div>';
+        $('.dataTables_filter').append(indicatorHtml);
+    }
 }
+
 
 // Fungsi untuk update statistik jurnal
 function updateStats() {
     $.ajax({
-        url: base_url + 'jurnal/get_data',
+        url: base_url + 'jurnal/get_jurnal_data',
         type: 'GET',
         dataType: 'json',
         success: function(response) {
@@ -654,64 +604,65 @@ function updateStats() {
     });
 }
 
-// Fungsi untuk filter berdasarkan status daring
-function filterByDaring(isDaring) {
+// Fungsi untuk search jurnal
+function searchJurnal() {
+    let keyword = $('#searchInput').val();
+    
+    if (!keyword) {
+        // If keyword is empty, just reload with current filters
+        applyFiltersToTable();
+        return;
+    }
+    
     $.ajax({
-        url: base_url + 'jurnal/get_jurnal_by_daring_status/' + isDaring,
+        url: base_url + 'jurnal/search',
         type: 'GET',
+        data: { keyword: keyword },
         dataType: 'json',
         success: function(response) {
             if (response.status === 'success') {
-                // Clear current table data
-                $('#jurnalTable').DataTable().clear();
+                // Clear the table and rebuild with search results
+                let table = $('#jurnalTable').DataTable();
+                table.clear();
                 
-                // Add new data
                 let data = [];
-                $.each(response.data, function(index, jurnal) {
-                    let fotoHtml = jurnal.foto_bukti ?
-                        '<img src="' + base_url + 'assets/uploads/foto_kegiatan/' + jurnal.foto_bukti + '" alt="Foto Bukti" style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="viewImage(\'' + jurnal.foto_bukti + '\')">' :
-                        '<span class="text-gray-400">Tidak ada</span>';
-                    
-                    let actionButtons = '<div class="flex gap-1">' +
-                                       '<button onclick="editJurnal(' + jurnal.id_jurnal + ')" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">' +
-                                       '<i class="fas fa-edit"></i>' +
-                                       '</button>' +
-                                       '<button onclick="deleteJurnal(' + jurnal.id_jurnal + ')" class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors">' +
-                                       '<i class="fas fa-trash"></i>' +
-                                       '</button>' +
-                                       '<button onclick="viewJurnal(' + jurnal.id_jurnal + ')" class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors">' +
-                                       '<i class="fas fa-eye"></i>' +
-                                       '</button>' +
-                                       '</div>';
-                    
-                    data.push([
-                        jurnal.id_jurnal,
-                        jurnal.tanggal,
-                        jurnal.nama_guru,
-                        jurnal.nama_kelas,
-                        jurnal.nama_mapel,
-                        jurnal.materi.length > 50 ? jurnal.materi.substring(0, 50) + '...' : jurnal.materi,
-                        jurnal.jumlah_siswa,
-                        jurnal.is_daring ? '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">Daring</span>' : '<span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">Offline</span>',
-                        fotoHtml,
-                        actionButtons
-                    ]);
+                $.each(response.data, function(index, j) {
+                    let row = [];
+                    row[0] = j.id_jurnal;
+                    // Format date in JavaScript
+                    let dateObj = new Date(j.tanggal);
+                    let formattedDate = dateObj.getDate().toString().padStart(2, '0') + '/' +
+                                       (dateObj.getMonth() + 1).toString().padStart(2, '0') + '/' +
+                                       dateObj.getFullYear();
+                    row[1] = formattedDate;
+                    row[2] = j.nama_guru;
+                    row[3] = j.nama_kelas;
+                    row[4] = j.nama_mapel;
+                    row[5] = j.materi.length > 50 ? j.materi.substring(0, 50) + '...' : j.materi;
+                    row[6] = j.jumlah_siswa;
+                    row[7] = j.is_daring ? '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">Daring</span>' : '<span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">Offline</span>';
+                    row[8] = j.foto_bukti ? '<img src="' + base_url + 'assets/uploads/foto_kegiatan/' + j.foto_bukti + '" alt="Foto Bukti" style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px;" onclick="viewImage(\'' + j.foto_bukti + '\')" style="cursor: pointer;">' : '<span class="text-gray-400">Tidak ada</span>';
+                    row[9] = '<div class="flex gap-1">' +
+                              '<button onclick="editJurnal('+j.id_jurnal+')" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">' +
+                              '<i class="fas fa-edit"></i>' +
+                              '</button>' +
+                              '<button onclick="deleteJurnal('+j.id_jurnal+')" class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors">' +
+                              '<i class="fas fa-trash"></i>' +
+                              '</button>' +
+                              '<button onclick="viewJurnal('+j.id_jurnal+')" class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors">' +
+                              '<i class="fas fa-eye"></i>' +
+                              '</button>' +
+                              '</div>';
+                    data.push(row);
                 });
                 
-                $('#jurnalTable').DataTable().rows.add(data).draw();
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Berhasil',
-                    text: 'Data berhasil difilter',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
+                table.rows.add(data);
+                table.draw();
             } else {
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Gagal memfilter data'
+                    text: 'Gagal melakukan pencarian'
                 });
             }
         },
@@ -719,13 +670,53 @@ function filterByDaring(isDaring) {
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'Terjadi kesalahan saat memfilter data'
+                text: 'Terjadi kesalahan saat melakukan pencarian'
             });
         }
     });
 }
 
+// Fungsi untuk filter berdasarkan status daring
+function filterByDaring(isDaring) {
+    // Update filter - ensure it's sent as an integer, not a string
+    currentFilters.is_daring = isDaring;
+    
+    console.log('Filtering by is_daring:', currentFilters.is_daring);
+    // Apply filters
+    applyFiltersToTable();
+    
+    Swal.fire({
+        icon: 'success',
+        title: 'Berhasil',
+        text: 'Filter ' + (isDaring ? 'Daring' : 'Offline') + ' diterapkan',
+        timer: 1500,
+        showConfirmButton: false
+    });
+}
+
 // Fungsi untuk reset filter
 function resetFilter() {
-    refreshTable();
+    // Reset all filters
+    currentFilters = {
+        tanggal_awal: '',
+        tanggal_akhir: '',
+        is_daring: null
+    };
+    
+    // Clear form fields
+    $('#tanggal_awal').val('');
+    $('#tanggal_akhir').val('');
+    
+    // Save and apply
+    saveFilters();
+    $('#jurnalTable').DataTable().ajax.reload();
+    updateFilterIndicator();
+    
+    Swal.fire({
+        icon: 'success',
+        title: 'Berhasil',
+        text: 'Filter berhasil direset',
+        timer: 1500,
+        showConfirmButton: false
+    });
 }

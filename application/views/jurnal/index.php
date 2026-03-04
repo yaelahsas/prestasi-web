@@ -830,6 +830,7 @@
         </div>
     </div>
 
+
     <!-- Image Preview Modal -->
     <div id="imageModal" class="image-modal">
         <span class="close-image" onclick="closeImageModal()">&times;</span>
