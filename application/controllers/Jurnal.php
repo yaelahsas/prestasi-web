@@ -65,7 +65,7 @@ class Jurnal extends CI_Controller {
             $row[] = $j->nama_mapel;
             $row[] = substr($j->materi, 0, 50) . (strlen($j->materi) > 50 ? '...' : '');
             $row[] = $j->jumlah_siswa;
-            $row[] = $j->is_daring ? '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">Daring</span>' : '<span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">Offline</span>';
+            $row[] = $j->is_daring ? '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">Daring</span>' : '<span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">Luring</span>';
             $row[] = $j->foto_bukti ? '<img src="' . base_url('assets/uploads/foto_kegiatan/' . $j->foto_bukti) . '" alt="Foto Bukti" style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px;" onclick="viewImage(\'' . $j->foto_bukti . '\')" style="cursor: pointer;">' : '<span class="text-gray-400">Tidak ada</span>';
             $row[] = '<div class="flex gap-1">
                         <button onclick="editJurnal('.$j->id_jurnal.')" class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">

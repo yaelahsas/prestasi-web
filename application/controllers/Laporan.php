@@ -153,7 +153,7 @@ img {
         $no = 1;
 
         foreach ($data_jurnal as $jurnal) {
-            $status = $jurnal->is_daring == 1 ? 'Daring' : 'Offline';
+            $status = $jurnal->is_daring == 1 ? 'Daring' : 'Luring';
             $table_data[] = [
                 $no++,
                 date('d/m/Y', strtotime($jurnal->tanggal)),
@@ -344,7 +344,7 @@ img {
         $no = 1;
 
         foreach ($data_jurnal as $jurnal) {
-            $status = $jurnal->is_daring == 1 ? 'Daring' : 'Offline';
+            $status = $jurnal->is_daring == 1 ? 'Daring' : 'Luring';
             $table_data[] = [
                 $no++,
                 date('d/m/Y', strtotime($jurnal->tanggal)),
@@ -493,7 +493,7 @@ img {
         $no = 1;
 
         foreach ($data_jurnal as $jurnal) {
-            $status = $jurnal->is_daring == 1 ? 'Daring' : 'Offline';
+            $status = $jurnal->is_daring == 1 ? 'Daring' : 'Luring';
             $table_data[] = [
                 $no++,
                 date('d/m/Y', strtotime($jurnal->tanggal)),
@@ -640,7 +640,7 @@ img {
         $no = 1;
 
         foreach ($data_jurnal as $jurnal) {
-            $status = $jurnal->is_daring == 1 ? 'Daring' : 'Offline';
+            $status = $jurnal->is_daring == 1 ? 'Daring' : 'Luring';
             $table_data[] = [
                 $no++,
                 date('d/m/Y', strtotime($jurnal->tanggal)),
@@ -777,7 +777,7 @@ img {
         $html .= '<div class="margin-top-20"></div>';
 
         // Prepare table data
-        $headers = ['No', 'Nama Guru', 'NIP', 'Total Pertemuan', 'Total Daring', 'Total Offline'];
+        $headers = ['No', 'Nama Guru', 'NIP', 'Total Pertemuan', 'Total Daring', 'Total Luring'];
         $table_data = [];
         $no = 1;
 

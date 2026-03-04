@@ -637,11 +637,13 @@ img {
 </div>';
 
         // Tabel utama laporan (tanpa kolom siswa)
-        $headers = ['No', 'Tanggal', 'Kelas', 'Mapel', 'Guru', 'Materi', 'Penginput'];
+        // Tabel utama laporan (dengan kolom status daring)
+        $headers = ['No', 'Tanggal', 'Kelas', 'Mapel', 'Guru', 'Materi', 'Status', 'Penginput'];
         $table_data = [];
         $no = 1;
 
         foreach ($data_jurnal as $jurnal) {
+            $status = $jurnal->is_daring == 1 ? 'Daring' : 'Luring';
             $table_data[] = [
                 $no++,
                 date('d/m/Y', strtotime($jurnal->tanggal)),
@@ -649,12 +651,13 @@ img {
                 $jurnal->nama_mapel,
                 $jurnal->nama_guru,
                 $jurnal->materi,
+                $status,
                 $jurnal->nama_penginput
             ];
         }
 
         // Panggil generate table dengan class khusus
-        $html .= generate_table_html($headers, $table_data, [10, 20, 25, 25, 30, 60, 25], 'main-table');
+        $html .= generate_table_html($headers, $table_data, [10, 20, 25, 25, 30, 60, 15, 25], 'main-table');
 
         // Footer + QR Code
         $html .= generate_pdf_footer($pdf, 'Srono', $tanggal_cetak);
