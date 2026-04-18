@@ -112,6 +112,10 @@
                 <i class="fas fa-book-open w-5 text-center group-hover:scale-110 transition-transform"></i>
                 <span>Mata Pelajaran</span>
             </a>
+            <a href="<?= base_url('ekstra') ?>" class="nav-item flex items-center gap-3 p-3 rounded-lg text-gray-700 hover:bg-school-light-green hover:text-school-dark-green transition-all duration-200 group">
+                <i class="fas fa-star w-5 text-center group-hover:scale-110 transition-transform"></i>
+                <span>Ekstrakurikuler</span>
+            </a>
             <a href="<?= base_url('laporan') ?>" class="nav-item flex items-center gap-3 p-3 rounded-lg text-gray-700 hover:bg-school-light-green hover:text-school-dark-green transition-all duration-200 group">
                 <i class="fas fa-file-alt w-5 text-center group-hover:scale-110 transition-transform"></i>
                 <span>Laporan</span>
@@ -127,6 +131,10 @@
             <a href="<?= base_url('whatsapp') ?>" class="nav-item nav-active flex items-center gap-3 p-3 rounded-lg transition-all duration-200 group">
                 <i class="fab fa-whatsapp w-5 text-center"></i>
                 <span>WhatsApp Bot</span>
+            </a>
+            <a href="<?= base_url('billing') ?>" class="nav-item flex items-center gap-3 p-3 rounded-lg text-gray-700 hover:bg-school-light-green hover:text-school-dark-green transition-all duration-200 group">
+                <i class="fas fa-file-invoice-dollar w-5 text-center group-hover:scale-110 transition-transform"></i>
+                <span>Billing</span>
             </a>
 
             <div class="pt-4 mt-4 border-t border-gray-200">

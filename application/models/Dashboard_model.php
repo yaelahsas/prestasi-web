@@ -222,4 +222,13 @@ class Dashboard_model extends CI_Model {
             'guru_teraktif'   => $this->get_guru_teraktif(5),
         ];
     }
+
+    /**
+     * Mendapatkan data sekolah
+     * @return object
+     */
+    public function get_sekolah()
+    {
+        return $this->db->get('bimbel_sekolah')->row();
+    }
 }
