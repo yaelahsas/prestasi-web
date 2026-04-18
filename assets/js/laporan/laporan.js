@@ -16,6 +16,8 @@ $(document).ready(function() {
     $('#tahun_kelas').val(currentYear);
     $('#bulan_rekap').val(currentMonth);
     $('#tahun_rekap').val(currentYear);
+    $('#bulan_billing').val(currentMonth);
+    $('#tahun_billing').val(currentYear);
     
     // Handle form submissions
     $('#formLaporanBulanan').on('submit', function(e) {
@@ -79,6 +81,17 @@ $(document).ready(function() {
         
         // Open PDF in new window
         var url = base_url + 'laporan/cetak_rekap_kehadiran?bulan=' + bulan + '&tahun=' + tahun;
+        window.open(url, '_blank');
+    });
+    
+    $('#formLaporanBilling').on('submit', function(e) {
+        e.preventDefault();
+        
+        var bulan = $('#bulan_billing').val();
+        var tahun = $('#tahun_billing').val();
+        
+        // Open PDF in new window
+        var url = base_url + 'laporan/cetak_laporan_billing?bulan=' + bulan + '&tahun=' + tahun;
         window.open(url, '_blank');
     });
     

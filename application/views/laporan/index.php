@@ -633,6 +633,48 @@
                     </form>
                 </div>
 
+                <!-- Laporan Billing Bulanan -->
+                <div class="bg-white rounded-2xl shadow-lg p-6 animate-slide-up" style="animation-delay: 0.8s">
+                    <div class="flex items-center gap-3 mb-4">
+                        <i class="fas fa-file-invoice-dollar text-school-green text-xl"></i>
+                        <h3 class="text-lg font-semibold text-gray-800">Laporan Billing Bulanan</h3>
+                    </div>
+                    <form id="formLaporanBilling">
+                        <div class="form-group">
+                            <label for="bulan_billing">Pilih Bulan</label>
+                            <select name="bulan_billing" id="bulan_billing" class="form-control">
+                                <option value="01">Januari</option>
+                                <option value="02">Februari</option>
+                                <option value="03">Maret</option>
+                                <option value="04">April</option>
+                                <option value="05">Mei</option>
+                                <option value="06">Juni</option>
+                                <option value="07">Juli</option>
+                                <option value="08">Agustus</option>
+                                <option value="09">September</option>
+                                <option value="10">Oktober</option>
+                                <option value="11">November</option>
+                                <option value="12">Desember</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="tahun_billing">Pilih Tahun</label>
+                            <select name="tahun_billing" id="tahun_billing" class="form-control">
+                                <?php 
+                                $tahun_sekarang = date('Y');
+                                for($tahun = $tahun_sekarang; $tahun >= 2020; $tahun--) {
+                                    echo '<option value="' . $tahun . '">' . $tahun . '</option>';
+                                }
+                                ?>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-success w-full">
+                            <i class="fas fa-file-pdf"></i>
+                            <span>Cetak Laporan Billing</span>
+                        </button>
+                    </form>
+                </div>
+
             </div>
 
             <!-- INFO SECTION -->

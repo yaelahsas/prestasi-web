@@ -822,6 +822,165 @@ img {
         $pdf->stream('rekap_kehadiran_' . $bulan . '_' . $tahun . '.pdf', ['Attachment' => 0]);
     }
 
+    // Cetak laporan billing bulanan
+    public function cetak_laporan_billing()
+    {
+        $bulan = $this->input->get('bulan');
+        $tahun = $this->input->get('tahun');
+
+        if (!$bulan || !$tahun) {
+            show_error('Parameter tidak lengkap');
+        }
+
+        // Get data billing bulanan
+        $data_billing = $this->Laporan_model->get_billing_bulanan($bulan, $tahun);
+        $sekolah = $this->Sekolah_model->get_sekolah_for_pdf();
+
+        // Load DomPDF library
+        $this->load->library('dompdf');
+
+        // Create new PDF document
+        $pdf = new Dompdf();
+        $pdf->setPaper('A4', 'portrait');
+
+        $hari_cetak = format_hari_indo(date('Y-m-d'));
+        $tanggal_cetak = format_tanggal_indo(date('Y-m-d'));
+
+        // Build HTML content
+        $html = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Laporan Billing Bulanan</title>
+    <style>
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 10px;
+            margin: 15px;
+        }
+        table.main-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        table.main-table th,
+        table.main-table td {
+            border: 1px solid #000;
+            padding: 5px;
+            font-size: 9px;
+        }
+        table.main-table th {
+            text-align: center;
+            font-weight: bold;
+            background-color: #f0f0f0;
+        }
+        .text-center { text-align: center; }
+        .bold { font-weight: bold; }
+        .info-box {
+            border: 1px solid #000;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>';
+
+        // Add copyright notice to appear on every page
+        $html .= generate_pdf_copyright();
+
+        // Header
+        $html .= generate_pdf_header($pdf, 'LAPORAN BILLING BULANAN');
+
+        // Kotak informasi laporan
+        $html .= '
+<div class="info-box">
+    <table style="width:100%; border:none !important; border-collapse:collapse !important;">
+        <tr>
+            <td style="border:none !important;width:20%;">Periode</td>
+            <td style="border:none !important;width:2%;">:</td>
+            <td style="border:none !important;width:78%;"><b>' . $this->get_nama_bulan($bulan) . ' ' . $tahun . '</b></td>
+        </tr>
+        <tr>
+            <td style="border:none !important;">Hari Cetak</td>
+            <td style="border:none !important;">:</td>
+            <td style="border:none !important;">' . $hari_cetak . '</td>
+        </tr>
+        <tr>
+            <td style="border:none !important;">Tanggal Cetak</td>
+            <td style="border:none !important;">:</td>
+            <td style="border:none !important;">' . $tanggal_cetak . '</td>
+        </tr>
+        <tr>
+            <td style="border:none !important;">Total Guru</td>
+            <td style="border:none !important;">:</td>
+            <td style="border:none !important;"><b>' . count($data_billing) . ' Data</b></td>
+        </tr>
+    </table>
+</div>';
+
+        // Tabel utama laporan
+        $headers = ['No', 'Nama Guru', 'Jabatan', 'Jumlah Pertemuan', 'Rincian Pertemuan', 'Jumlah Total', 'Keterangan'];
+        $table_data = [];
+        $no = 1;
+        $grand_total = 0;
+
+        foreach ($data_billing as $billing) {
+            // Tentukan jabatan berdasarkan NIP
+            $jabatan = (!empty($billing->nip)) ? 'Guru ASN' : 'Guru Non-ASN';
+            
+            // Get detail billing
+            $details = $this->Laporan_model->get_billing_detail_bulanan($billing->id_billing);
+            
+            // Build rincian pertemuan string
+            $rincian = [];
+            foreach ($details as $detail) {
+                $jenis_label = ucfirst($detail->jenis_kegiatan);
+                $rincian[] = $jenis_label . ' ' . $detail->jumlah_jurnal . ' x Rp ' . number_format($detail->tarif_per_jurnal, 0, ',', '.');
+            }
+            $rincian_text = implode(', ', $rincian);
+            
+            $table_data[] = [
+                $no++,
+                $billing->nama_guru,
+                $jabatan,
+                $billing->total_jurnal,
+                $rincian_text,
+                'Rp ' . number_format($billing->total_honor, 0, ',', '.'),
+                ''
+            ];
+            
+            $grand_total += $billing->total_honor;
+        }
+
+        // Panggil generate table dengan class khusus
+        $html .= generate_table_html($headers, $table_data, [10, 40, 25, 20, 80, 30, 20], 'main-table');
+
+        // Grand total
+        $html .= '
+<div style="margin-top: 10px;">
+    <table style="width:100%; border:none !important; border-collapse:collapse !important;">
+        <tr>
+            <td style="border:none !important;width:70%;text-align:right;"><b>GRAND TOTAL:</b></td>
+            <td style="border:none !important;width:30%;"><b>Rp ' . number_format($grand_total, 0, ',', '.') . '</b></td>
+        </tr>
+    </table>
+</div>';
+
+        // Footer + QR Code
+        $html .= generate_pdf_footer($pdf, 'Srono', $tanggal_cetak);
+
+        $html .= '</body></html>';
+
+        // Render PDF
+        $pdf->loadHtml($html);
+        $pdf->render();
+
+        // Output
+        $filename = 'laporan_billing_bulanan_' . $bulan . '_' . $tahun . '.pdf';
+
+        $pdf->stream($filename, ['Attachment' => 0]);
+    }
+
     // Helper function untuk nama bulan
     private function get_nama_bulan($bulan)
     {

@@ -174,4 +174,68 @@ class Laporan_model extends CI_Model {
         
         return $this->db->get()->result();
     }
+
+    // Get billing data untuk laporan bulanan (semua guru aktif)
+    public function get_billing_bulanan($bulan, $tahun)
+    {
+        // Get semua guru aktif
+        $this->db->select('g.id_guru, g.nama_guru, g.nip, g.status');
+        $this->db->from('bimbel_guru g');
+        $this->db->where('g.status', 'aktif');
+        $this->db->order_by('g.nama_guru', 'ASC');
+        $guru_list = $this->db->get()->result();
+        
+        // Get billing data untuk periode ini
+        $this->db->from('v_billing_summary');
+        $this->db->where('bulan', $bulan);
+        $this->db->where('tahun', $tahun);
+        $billing_data = $this->db->get()->result();
+        
+        // Create array indexed by id_guru untuk lookup cepat
+        $billing_by_guru = [];
+        foreach ($billing_data as $billing) {
+            $billing_by_guru[$billing->id_guru] = $billing;
+        }
+        
+        // Merge data: semua guru aktif dengan billing data (jika ada)
+        $result = [];
+        foreach ($guru_list as $guru) {
+            if (isset($billing_by_guru[$guru->id_guru])) {
+                // Guru punya billing data
+                $result[] = $billing_by_guru[$guru->id_guru];
+            } else {
+                // Guru tidak punya billing data (tidak ada jurnal)
+                $result[] = (object)[
+                    'id_billing' => null,
+                    'id_guru' => $guru->id_guru,
+                    'nama_guru' => $guru->nama_guru,
+                    'nip' => $guru->nip,
+                    'total_jurnal' => 0,
+                    'total_honor' => 0,
+                    'status' => null
+                ];
+            }
+        }
+        
+        // Sort berdasarkan total_honor descending (terbesar ke terkecil)
+        usort($result, function($a, $b) {
+            return $b->total_honor - $a->total_honor;
+        });
+        
+        return $result;
+    }
+
+    // Get billing detail untuk laporan bulanan
+    public function get_billing_detail_bulanan($id_billing)
+    {
+        if (!$id_billing) {
+            return [];
+        }
+        
+        $this->db->from('v_billing_detail_lengkap');
+        $this->db->where('id_billing', $id_billing);
+        $this->db->order_by('jenis_kegiatan', 'ASC');
+        
+        return $this->db->get()->result();
+    }
 }
