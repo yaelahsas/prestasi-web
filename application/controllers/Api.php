@@ -15,6 +15,8 @@ class Api extends CI_Controller
         $this->load->model('User_model');
         $this->load->model('Laporan_model');
         $this->load->model('Sekolah_model');
+        $this->load->model('Billing_model');
+        $this->load->model('Dashboard_model');
         $this->load->helper(array('pdf_helper', 'date'));
         $this->load->helper('tanggal');
 
@@ -1364,5 +1366,266 @@ img {
         $this->load->model('Whatsapp_model');
         $sessions = $this->Whatsapp_model->get_all_sessions();
         $this->_send_success_response($sessions, 'Sessions retrieved successfully');
+    }
+
+    /**
+     * Get jurnal hari ini untuk WhatsApp bot
+     * GET /api/jurnal/hari_ini
+     * 
+     * @return void
+     */
+    public function get_jurnal_hari_ini()
+    {
+        // Authenticate API request
+        if (!$this->_authenticate()) {
+            return;
+        }
+
+        // Get today's date
+        $today = date('Y-m-d');
+
+        // Query jurnal for today
+        $this->db->select('
+            g.nama_guru,
+            k.nama_kelas as kelas,
+            j.materi,
+            TIME(j.created_at) as waktu_input,
+            j.tanggal
+        ');
+        $this->db->from('bimbel_jurnal j');
+        $this->db->join('bimbel_guru g', 'j.id_guru = g.id_guru');
+        $this->db->join('bimbel_kelas k', 'j.id_kelas = k.id_kelas');
+        $this->db->where('DATE(j.tanggal)', $today);
+        $this->db->order_by('j.created_at', 'ASC');
+        $jurnal = $this->db->get()->result();
+
+        // Format waktu_input to HH:MM:SS
+        foreach ($jurnal as $item) {
+            $item->waktu_input = date('H:i:s', strtotime($item->waktu_input));
+        }
+
+        // Send simplified response for WhatsApp bot
+        $this->output
+            ->set_status_header(200)
+            ->set_content_type('application/json')
+            ->set_output(json_encode([
+                'status' => 'success',
+                'data' => $jurnal
+            ]));
+    }
+
+    /**
+     * Get billing PDF by month and year
+     * GET /api/billing/pdf?bulan=04&tahun=2026
+     * 
+     * @return void
+     */
+    public function get_billing_pdf()
+    {
+        // Authenticate API request
+        if (!$this->_authenticate()) {
+            return;
+        }
+
+        // Get parameters
+        $bulan = $this->input->get('bulan');
+        $tahun = $this->input->get('tahun');
+
+        // Validate month and year parameters
+        if (!$bulan || !$tahun) {
+            $this->_send_error_response('Invalid month or year parameter', 400);
+            return;
+        }
+
+        // Validate month range (1-12)
+        if (!is_numeric($bulan) || $bulan < 1 || $bulan > 12) {
+            $this->_send_error_response('Invalid month parameter. Must be between 1 and 12', 400);
+            return;
+        }
+
+        // Validate year range
+        if (!is_numeric($tahun) || $tahun < 2020 || $tahun > 2100) {
+            $this->_send_error_response('Invalid year parameter', 400);
+            return;
+        }
+
+        try {
+            // Get billing data for the specified month and year
+            $data_billing = $this->Billing_model->get_billing_filtered($bulan, $tahun);
+
+            // Check if billing data exists
+            if (empty($data_billing)) {
+                $this->_send_error_response('Billing data not found for the specified period', 404);
+                return;
+            }
+
+            // Generate PDF
+            $pdf_content = $this->_generate_billing_pdf($bulan, $tahun, $data_billing);
+
+            if ($pdf_content) {
+                // Set headers for PDF download
+                header('Content-Type: application/pdf');
+                header('Content-Disposition: inline; filename="billing_' . $bulan . '_' . $tahun . '.pdf"');
+                header('Cache-Control: private, max-age=0, must-revalidate');
+                header('Pragma: public');
+
+                echo $pdf_content;
+            } else {
+                $this->_send_error_response('Failed to generate PDF', 500);
+            }
+        } catch (Exception $e) {
+            $this->_send_error_response('Internal server error: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Generate billing PDF content
+     * @param string $bulan
+     * @param string $tahun
+     * @param array $data_billing
+     * @return string|null
+     */
+    private function _generate_billing_pdf($bulan, $tahun, $data_billing)
+    {
+        // Load DomPDF library
+        $this->load->library('dompdf');
+
+        // Create new PDF document
+        $pdf = new Dompdf();
+        $pdf->setPaper('A4', 'portrait');
+
+        $hari_cetak = format_hari_indo(date('Y-m-d'));
+        $tanggal_cetak = format_tanggal_indo(date('Y-m-d'));
+
+        // Build HTML content
+        $html = '<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Laporan Billing Bulanan</title>
+<style>
+    body {
+        font-family: Helvetica, Arial, sans-serif;
+        font-size: 10px;
+        margin: 15px;
+    }
+    table.main-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 10px;
+    }
+    table.main-table th,
+    table.main-table td {
+        border: 1px solid #000;
+        padding: 5px;
+        font-size: 9px;
+    }
+    table.main-table th {
+        text-align: center;
+        font-weight: bold;
+        background-color: #f0f0f0;
+    }
+    .text-center { text-align: center; }
+    .bold { font-weight: bold; }
+    .info-box {
+        border: 1px solid #000;
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+</style>
+</head>
+<body>';
+
+        // Add copyright notice
+        $html .= generate_pdf_copyright('API', '', 'v1.0');
+
+        // Header
+        $html .= generate_pdf_header($pdf, 'LAPORAN BILLING BULANAN');
+
+        // Info box
+        $html .= '
+<div class="info-box">
+    <table style="width:100%; border:none !important; border-collapse:collapse !important;">
+        <tr>
+            <td style="border:none !important;width:20%;">Periode</td>
+            <td style="border:none !important;width:2%;">:</td>
+            <td style="border:none !important;width:78%;"><b>' . $this->_get_nama_bulan($bulan) . ' ' . $tahun . '</b></td>
+        </tr>
+        <tr>
+            <td style="border:none !important;">Hari Cetak</td>
+            <td style="border:none !important;">:</td>
+            <td style="border:none !important;">' . $hari_cetak . '</td>
+        </tr>
+        <tr>
+            <td style="border:none !important;">Tanggal Cetak</td>
+            <td style="border:none !important;">:</td>
+            <td style="border:none !important;">' . $tanggal_cetak . '</td>
+        </tr>
+        <tr>
+            <td style="border:none !important;">Total Guru</td>
+            <td style="border:none !important;">:</td>
+            <td style="border:none !important;"><b>' . count($data_billing) . ' Data</b></td>
+        </tr>
+    </table>
+</div>';
+
+        // Main table
+        $headers = ['No', 'Nama Guru', 'Jabatan', 'Jumlah Pertemuan', 'Rincian Pertemuan', 'Jumlah Total', 'Keterangan'];
+        $table_data = [];
+        $no = 1;
+        $grand_total = 0;
+
+        foreach ($data_billing as $billing) {
+            // Determine jabatan based on NIP
+            $jabatan = (!empty($billing->nip)) ? 'Guru ASN' : 'Guru Non-ASN';
+            
+            // Get billing detail
+            $details = $this->Billing_model->get_billing_details($billing->id_billing);
+            
+            // Build rincian pertemuan string
+            $rincian = [];
+            foreach ($details as $detail) {
+                $jenis_label = ucfirst($detail->jenis_kegiatan);
+                $rincian[] = $jenis_label . ' ' . $detail->jumlah_jurnal . ' x Rp ' . number_format($detail->tarif_per_jurnal, 0, ',', '.');
+            }
+            $rincian_text = implode(', ', $rincian);
+            
+            $table_data[] = [
+                $no++,
+                $billing->nama_guru,
+                $jabatan,
+                $billing->total_jurnal,
+                $rincian_text,
+                'Rp ' . number_format($billing->total_honor, 0, ',', '.'),
+                ''
+            ];
+            
+            $grand_total += $billing->total_honor;
+        }
+
+        // Generate table
+        $html .= generate_table_html($headers, $table_data, [10, 40, 25, 20, 80, 30, 20], 'main-table');
+
+        // Grand total
+        $html .= '
+<div style="margin-top: 10px;">
+    <table style="width:100%; border:none !important; border-collapse:collapse !important;">
+        <tr>
+            <td style="border:none !important;width:70%;text-align:right;"><b>GRAND TOTAL:</b></td>
+            <td style="border:none !important;width:30%;"><b>Rp ' . number_format($grand_total, 0, ',', '.') . '</b></td>
+        </tr>
+    </table>
+</div>';
+
+        // Footer
+        $html .= generate_pdf_footer($pdf, 'Srono', $tanggal_cetak);
+
+        $html .= '</body></html>';
+
+        // Render PDF
+        $pdf->loadHtml($html);
+        $pdf->render();
+
+        return $pdf->output();
     }
 }
