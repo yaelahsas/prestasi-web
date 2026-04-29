@@ -1374,7 +1374,7 @@ img {
      * 
      * @return void
      */
-    public function get_jurnal_hari_ini()
+    public function get_jurnal_today()
     {
         // Authenticate API request
         if (!$this->_authenticate()) {
