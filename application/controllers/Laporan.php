@@ -19,6 +19,7 @@ class Laporan extends CI_Controller
         $this->load->model('Laporan_model');
         $this->load->helper(array('pdf_helper', 'date'));
         $this->load->helper('tanggal');
+        $this->load->library('template');
     }
 
     // Halaman utama laporan
@@ -31,7 +32,12 @@ class Laporan extends CI_Controller
         $data['kelas'] = $this->Kelas_model->get_all_kelas();
         $data['mapel'] = $this->Mapel_model->get_all_mapel();
 
-        $this->load->view('laporan/index', $data);
+        $this->template
+            ->set_title('Laporan')
+            ->set_active_menu('laporan')
+            ->add_css_file('https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css')
+            ->add_js_file('https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js')
+            ->render('laporan/index', $data);
     }
 
     // Cetak laporan jurnal bulanan

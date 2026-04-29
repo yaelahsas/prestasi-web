@@ -13,9 +13,10 @@ class Users extends CI_Controller {
         if (!$this->session->userdata('logged_in')) {
             redirect('auth');
         }
-        // Load model
+        // Load model & library
         $this->load->model('User_model');
         $this->load->model('Dashboard_model');
+        $this->load->library('template');
     }
 
     /**
@@ -26,7 +27,13 @@ class Users extends CI_Controller {
     {
         $data['user'] = $this->session->userdata();
         $data['total_users'] = $this->Dashboard_model->get_total_users();
-        $this->load->view('users/index', $data);
+
+        $this->template
+            ->set_title('Data Pengguna')
+            ->set_active_menu('users')
+            ->add_css_file('https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css')
+            ->add_js_file('https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js')
+            ->render('users/index', $data);
     }
 
     /**

@@ -12,10 +12,11 @@ class Billing extends CI_Controller {
             redirect('auth');
         }
         
-        // Load model
+        // Load model & library
         $this->load->model('Billing_model');
         $this->load->model('Dashboard_model');
         $this->load->helper(array('pdf_helper', 'date'));
+        $this->load->library('template');
 
     }
 
@@ -31,7 +32,15 @@ class Billing extends CI_Controller {
     {
         $data['user'] = $this->session->userdata();
         $data['total_billing'] = $this->Billing_model->get_all_billing();
-        $this->load->view('billing/index', $data);
+
+        $this->template
+            ->set_title('Sistem Billing Guru')
+            ->set_active_menu('billing')
+            ->add_css_file('https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css')
+            ->add_css_file('https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css')
+            ->add_js_file('https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js')
+            ->add_js_file('https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js')
+            ->render('billing/index', $data);
     }
 
     // ============================================

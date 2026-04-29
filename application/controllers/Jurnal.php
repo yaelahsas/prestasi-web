@@ -12,9 +12,10 @@ class Jurnal extends CI_Controller {
         if (!$this->session->userdata('logged_in')) {
             redirect('auth');
         }
-        // Load model
+        // Load model & library
         $this->load->model('Jurnal_model');
         $this->load->model('Dashboard_model');
+        $this->load->library('template');
     }
 
     /**
@@ -29,7 +30,13 @@ class Jurnal extends CI_Controller {
         $data['total_bulan'] = $this->Jurnal_model->get_total_jurnal_bulan_ini();
         $data['total_daring'] = $this->Jurnal_model->get_total_jurnal_daring();
         $data['total_offline'] = $this->Jurnal_model->get_total_jurnal_offline();
-        $this->load->view('jurnal/index', $data);
+
+        $this->template
+            ->set_title('Data Jurnal')
+            ->set_active_menu('jurnal')
+            ->add_css_file('https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css')
+            ->add_js_file('https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js')
+            ->render('jurnal/index', $data);
     }
 
     /**

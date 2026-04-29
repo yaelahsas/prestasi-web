@@ -10,8 +10,9 @@ class Dashboard extends CI_Controller {
         if (!$this->session->userdata('logged_in')) {
             redirect('auth');
         }
-        // Load model
+        // Load model & library
         $this->load->model('Dashboard_model');
+        $this->load->library('template');
     }
 
     /**
@@ -30,7 +31,11 @@ class Dashboard extends CI_Controller {
         $data['jurnal_per_kelas'] = $dashboard['jurnal_per_kelas'];
         $data['guru_teraktif']    = $dashboard['guru_teraktif'];
 
-        $this->load->view('dashboard/index', $data);
+        $this->template
+            ->set_title('Dashboard')
+            ->set_active_menu('dashboard')
+            ->set_body_class('bg-gray-50 min-h-screen')
+            ->render('dashboard/index', $data);
     }
 
     /**

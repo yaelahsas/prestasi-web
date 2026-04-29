@@ -13,9 +13,10 @@ class Guru extends CI_Controller {
         if (!$this->session->userdata('logged_in')) {
             redirect('auth');
         }
-        // Load model
+        // Load model & library
         $this->load->model('Guru_model');
         $this->load->model('Dashboard_model');
+        $this->load->library('template');
     }
 
     /**
@@ -26,7 +27,13 @@ class Guru extends CI_Controller {
     {
         $data['user'] = $this->session->userdata();
         $data['total_guru'] = $this->Dashboard_model->get_total_guru();
-        $this->load->view('guru/index', $data);
+
+        $this->template
+            ->set_title('Data Guru')
+            ->set_active_menu('guru')
+            ->add_css_file('https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css')
+            ->add_js_file('https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js')
+            ->render('guru/index', $data);
     }
 
     /**

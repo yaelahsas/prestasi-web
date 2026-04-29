@@ -13,9 +13,10 @@ class Mapel extends CI_Controller {
         if (!$this->session->userdata('logged_in')) {
             redirect('auth');
         }
-        // Load model
+        // Load model & library
         $this->load->model('Mapel_model');
         $this->load->model('Dashboard_model');
+        $this->load->library('template');
     }
 
     /**
@@ -26,7 +27,13 @@ class Mapel extends CI_Controller {
     {
         $data['user'] = $this->session->userdata();
         $data['total_mapel'] = $this->Dashboard_model->get_total_mapel();
-        $this->load->view('mapel/index', $data);
+
+        $this->template
+            ->set_title('Data Mata Pelajaran')
+            ->set_active_menu('mapel')
+            ->add_css_file('https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css')
+            ->add_js_file('https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js')
+            ->render('mapel/index', $data);
     }
 
     /**

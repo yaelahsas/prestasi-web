@@ -10,9 +10,10 @@ class Kelas extends CI_Controller {
         if (!$this->session->userdata('logged_in')) {
             redirect('auth');
         }
-        // Load model
+        // Load model & library
         $this->load->model('Kelas_model');
         $this->load->model('Dashboard_model');
+        $this->load->library('template');
     }
 
     /**
@@ -23,7 +24,13 @@ class Kelas extends CI_Controller {
     {
         $data['user'] = $this->session->userdata();
         $data['total_kelas'] = $this->Dashboard_model->get_total_kelas();
-        $this->load->view('kelas/index', $data);
+
+        $this->template
+            ->set_title('Data Kelas')
+            ->set_active_menu('kelas')
+            ->add_css_file('https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css')
+            ->add_js_file('https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js')
+            ->render('kelas/index', $data);
     }
 
     /**

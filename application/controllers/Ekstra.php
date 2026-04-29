@@ -14,9 +14,10 @@ class Ekstra extends CI_Controller
         if (!$this->session->userdata('logged_in')) {
             redirect('auth');
         }
-        // Load model
+        // Load model & library
         $this->load->model('Ekstra_model');
         $this->load->model('Dashboard_model');
+        $this->load->library('template');
     }
 
     /**
@@ -27,7 +28,15 @@ class Ekstra extends CI_Controller
     {
         $data['user'] = $this->session->userdata();
         $data['total_ekstra'] = $this->Ekstra_model->get_total_ekstra_aktif();
-        $this->load->view('ekstra/index', $data);
+
+        $this->template
+            ->set_title('Data Ekstrakurikuler')
+            ->set_active_menu('ekstra')
+            ->add_css_file('https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css')
+            ->add_css_file('https://cdn.datatables.net/responsive/2.4.1/css/responsive.dataTables.min.css')
+            ->add_js_file('https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js')
+            ->add_js_file('https://cdn.datatables.net/responsive/2.4.1/js/dataTables.responsive.min.js')
+            ->render('ekstra/index', $data);
     }
 
     /**

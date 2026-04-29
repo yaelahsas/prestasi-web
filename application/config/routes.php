@@ -122,6 +122,7 @@ $route['api/jurnal/create'] = 'api/create_jurnal';
 $route['api/jurnal/list'] = 'api/get_all_jurnal';
 $route['api/jurnal/view/(:num)'] = 'api/get_jurnal/$1';
 $route['api/jurnal/search'] = 'api/search_jurnal';
+$route['api/jurnal/hari_ini'] = 'api/get_jurnal_hari_ini';
 $route['api/guru/list'] = 'api/get_guru';
 $route['api/kelas/list'] = 'api/get_kelas';
 $route['api/mapel/list'] = 'api/get_mapel';

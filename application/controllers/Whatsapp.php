@@ -11,6 +11,7 @@ class Whatsapp extends CI_Controller {
             redirect('auth');
         }
         $this->load->model('Whatsapp_model');
+        $this->load->library('template');
     }
 
     /**
@@ -20,7 +21,11 @@ class Whatsapp extends CI_Controller {
     {
         $data['user']     = $this->session->userdata();
         $data['sessions'] = $this->Whatsapp_model->get_all_sessions();
-        $this->load->view('whatsapp/index', $data);
+
+        $this->template
+            ->set_title('WhatsApp Bot')
+            ->set_active_menu('whatsapp')
+            ->render('whatsapp/index', $data);
     }
 
     /**

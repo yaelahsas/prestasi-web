@@ -13,9 +13,10 @@ class Sekolah extends CI_Controller {
         if (!$this->session->userdata('logged_in')) {
             redirect('auth');
         }
-        // Load model
+        // Load model & library
         $this->load->model('Sekolah_model');
         $this->load->model('Dashboard_model');
+        $this->load->library('template');
     }
 
     /**
@@ -26,7 +27,13 @@ class Sekolah extends CI_Controller {
     {
         $data['user'] = $this->session->userdata();
         $data['total_sekolah'] = $this->Dashboard_model->get_total_sekolah();
-        $this->load->view('sekolah/index', $data);
+
+        $this->template
+            ->set_title('Data Sekolah')
+            ->set_active_menu('sekolah')
+            ->add_css_file('https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css')
+            ->add_js_file('https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js')
+            ->render('sekolah/index', $data);
     }
 
     /**
